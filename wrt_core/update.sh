@@ -22,7 +22,7 @@ fi
 
 FEEDS_CONF="feeds.conf.default"
 GOLANG_REPO="https://github.com/sbwml/packages_lang_golang"
-GOLANG_BRANCH="25.x"
+GOLANG_BRANCH="26.x"
 THEME_SET="argon"
 LAN_ADDR="10.0.0.1"
 
@@ -33,6 +33,7 @@ source "$SCRIPT_DIR/modules/general.sh"
 source "$SCRIPT_DIR/modules/feeds.sh"
 source "$SCRIPT_DIR/modules/packages.sh"
 source "$SCRIPT_DIR/modules/system.sh"
+source "$SCRIPT_DIR/modules/docker.sh"
 
 
 main() {
@@ -83,6 +84,7 @@ main() {
     remove_attendedsysupgrade
     fix_kconfig_recursive_dependency
     install_feeds
+    update_docker_stack
     fix_easytier_lua
     update_script_priority
     update_geoip
@@ -91,10 +93,6 @@ main() {
     fix_quectel_cm
     install_pbr_cmcc
     fix_pbr_ip_forward
-    update_package "runc" "releases" "v1.3.3"
-    update_package "containerd" "releases" "v1.7.28"
-    update_package "docker" "tags" "v28.5.2"
-    update_package "dockerd" "releases" "v28.5.2"
 }
 
 main "$@"

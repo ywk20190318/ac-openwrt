@@ -26,9 +26,6 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Free disk space
-        uses: sbwml/actions@free-disk
-
       - name: Build System Setup
         run: |
           sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
