@@ -1,4 +1,4 @@
-name: Go_Release
+name: nn6000v2_6.10
 
 on:
   workflow_dispatch:
