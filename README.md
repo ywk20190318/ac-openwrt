@@ -23,31 +23,6 @@
 
 ***
 
-### 2.2 预装插件（22 个）
-
-| 插件名称                     | 功能说明          |
-| ------------------------ | ------------- |
-| **luci-app-argon**       | Argon 主题      |
-| **luci-app-istorex**     | 应用商店          |
-| **luci-app-dockerman**   | Docker        |
-| **luci-app-adguardhome** | 广告过滤          |
-| **luci-app-diskman**     | 磁盘管理          |
-| **luci-app-smartdns**    | DNS 加速        |
-| **luci-app-autoreboot**  | 定时重启          |
-| **luci-app-sqm**         | QoS 智能队列      |
-| **luci-app-upnp**        | UPnP 端口映射     |
-| **luci-app-hd-idle**     | 硬盘休眠          |
-| **luci-app-p910nd**      | USB 打印机共享     |
-| **luci-app-easytier**    | EasyTier 虚拟组网 |
-| **luci-app-zerotier**    | ZeroTier 虚拟组网 |
-| **luci-app-lucky**       | 大鸡            |
-| **luci-app-oaf**         | 应用行为过滤        |
-| **luci-app-ttyd**        | 终端            |
-| **luci-app-quickfile**   | 文件管理          |
-| **luci-app-samba4**      | SMB 文件共享      |
-| **luci-app-pbr**         | 策略路由          |
-| **luci-app-wol**         | 网络唤醒          |
-| **luci-app-passwall2**    | 科学上网          |
 
 ***
 
