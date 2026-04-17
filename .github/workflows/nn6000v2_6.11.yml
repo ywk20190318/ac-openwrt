@@ -1,4 +1,4 @@
-name: nn6000v2_6.10
+name: nn6000v2_6.11
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ env:
   DEVICE_MODEL: link_nn6000v2_immwrt
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   # 新增：指定目标内核版本
-  TARGET_KERNEL_VERSION: 6.10  
+  TARGET_KERNEL_VERSION: 6.11  
 
 jobs:
   build:
@@ -54,7 +54,7 @@ jobs:
           TARGET_PATH="target/linux/$(grep -oP 'TARGET_ARCH=\K.*' ../nn6000v2/configs/${{ env.DEVICE_MODEL }}.ini)"
           echo "Target kernel path: $TARGET_PATH"
           
-          # 修改Makefile中的KERNEL_PATCHVER变量为6.10
+          # 修改Makefile中的KERNEL_PATCHVER变量为6.11
           sed -i "s/^KERNEL_PATCHVER.*/KERNEL_PATCHVER:=${{ env.TARGET_KERNEL_VERSION }}/" "$TARGET_PATH/Makefile"
           
           # 验证修改是否生效
