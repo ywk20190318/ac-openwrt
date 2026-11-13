@@ -1,0 +1,12 @@
+#!/bin/sh
+# Switch ImmortalWrt APK feeds to the NJU domestic mirror on first boot.
+FEEDS="/etc/apk/repositories.d/distfeeds.list"
+
+[ -f "$FEEDS" ] || exit 0
+
+sed -i \
+    -e 's#https://downloads.immortalwrt.org#https://mirror.nju.edu.cn/immortalwrt#g' \
+    -e 's#https://mirrors.vsean.net/openwrt#https://mirror.nju.edu.cn/immortalwrt#g' \
+    "$FEEDS"
+
+exit 0
