@@ -27,7 +27,7 @@ source "$SCRIPT_DIR/packages.sh"
 source "$SCRIPT_DIR/system.sh"
 
 main() {
-    echo "===== NN6000V2 极度精简实用固件 ====="
+    echo "===== NN6000V2 原版 LuCI + nftables 精简固件 ====="
 
     clone_repo
     clean_up
@@ -36,7 +36,6 @@ main() {
     cd "$BUILD_DIR"
 
     update_feeds
-    install_quickfile
     install_feeds
 
     # 首次启动默认配置、温度显示、LAN 与 WiFi
@@ -52,14 +51,8 @@ main() {
     fix_kconfig_recursive_dependency
     remove_tweaked_packages
 
-    # Nginx + LuCI，HTTP only
-    set_nginx_default_config
-    update_nginx_ubus_module
-    fix_nginx_configure
-    update_uwsgi_limit_as
-
     echo "===== 精简脚本执行完成 ====="
-    echo "不预装 Docker、Dockerman、Podman、代理套件或其他容器运行时。"
+    echo "使用原版 LuCI + firewall4/nftables；不安装 QuickFile、Nginx、Docker/Podman 或代理套件。"
 }
 
 main "$@"
