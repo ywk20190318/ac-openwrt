@@ -19,7 +19,7 @@ diff --git a/package/kernel/linux/modules/netfilter.mk b/package/kernel/linux/mo
 index 0000000..0000000 100644
 --- a/package/kernel/linux/modules/netfilter.mk
 +++ b/package/kernel/linux/modules/netfilter.mk
-@@ -52,30 +52,13 @@ endef
+@@ -52,30 +52,12 @@ endef
  $(eval $(call KernelPackage,nf-conncount))
  
 -define KernelPackage/iptables
@@ -65,7 +65,7 @@ index 0000000..0000000 100644
    FILES:=$(foreach mod,$(NF_IPT6-m),$(LINUX_DIR)/net/$(mod).ko)
    AUTOLOAD:=$(call AutoProbe,$(notdir $(NF_IPT6-m)))
    DEPENDS:=+kmod-nf-ipt +kmod-nf-log6
-@@ -1085,7 +1070,9 @@ define KernelPackage/ebtables
+@@ -1085,6 +1070,8 @@ define KernelPackage/ebtables
    TITLE:=Bridge firewalling modules
    DEPENDS:=+kmod-ipt-core
    FILES:=$(foreach mod,$(EBTABLES-m),$(LINUX_DIR)/net/$(mod).ko)
