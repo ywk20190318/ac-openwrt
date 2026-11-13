@@ -1,4 +1,4 @@
-name: NN6000V2 Official Minimal Build
+name: NN6000V2 Practical Minimal Build
 
 on:
   workflow_dispatch:
@@ -142,7 +142,7 @@ jobs:
         shell: bash
         run: |
           {
-            echo "NN6000V2 实用精简固件"
+            echo "NN6000V2 极度精简实用固件"
             echo
             echo "- Device: ${DEVICE_MODEL}"
             echo "- Source: ${BUILD_SRC}"
@@ -150,9 +150,12 @@ jobs:
             echo "- Build: ${BUILD_DATE}"
             echo "- Kernel: ${KVER}"
             echo "- LAN: 10.0.0.1"
+            echo "- LuCI / DHCP / static leases: enabled"
             echo "- QuickFile: enabled"
             echo "- Nginx: HTTP only"
-            echo "- Docker Engine/Dockerman: enabled"
+            echo "- NSS / Wi-Fi / board drivers: retained"
+            echo "- USB storage and common filesystems: enabled"
+            echo "- Docker / Dockerman / Podman: not included"
             echo "- Proxy components: not preinstalled"
           } > release_body.txt
 
