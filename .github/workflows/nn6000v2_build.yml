@@ -152,7 +152,7 @@ jobs:
             echo "- LAN: 10.0.0.1"
             echo "- QuickFile: enabled"
             echo "- Nginx: HTTP only"
-            echo "- Docker/Dockerman: disabled"
+            echo "- Docker Engine/Dockerman: enabled"
             echo "- Proxy components: not preinstalled"
           } > release_body.txt
 
