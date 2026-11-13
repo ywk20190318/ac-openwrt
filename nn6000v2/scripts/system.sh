@@ -59,13 +59,19 @@ update_cpuusage() {
     local luci_rpc_path="$BUILD_DIR/feeds/luci/modules/luci-base/root/usr/share/rpcd/ucode/luci"
     local qualcommax_sbin_dir="$BUILD_DIR/target/linux/qualcommax/base-files/sbin"
 
-    if [[ -f "$luci_rpc_path" ]]; then
-        sed -i "s#const fd = popen('top -n1 | awk \\\'/^CPU/ {printf(\\\"%d%\\\", 100 - \\$8)}\\\'')#const cpuUsageCommand = access('/sbin/cpuusage') ? '/sbin/cpuusage' : 'top -n1 | awk \\\'/^CPU/ {printf(\\\"%d%\\\", 100 - \\$8)}\\\''#g" "$luci_rpc_path"
-        sed -i '/cpuUsageCommand/a \\\t\\\t\\\tconst fd = popen(cpuUsageCommand);' "$luci_rpc_path"
+    if [ -f "$luci_rpc_path" ]; then
+        sed -i "s#const fd = popen('top -n1 | awk \\\'/^CPU/ {printf(\"%d%\", 100 - \$8)}\\\'')#const cpuUsageCommand = access('/sbin/cpuusage') ? '/sbin/cpuusage' : 'top -n1 | awk \\\'/^CPU/ {printf(\"%d%\", 100 - \$8)}\\\''#g" "$luci_rpc_path"
+        sed -i '/cpuUsageCommand/a \\t\t\tconst fd = popen(cpuUsageCommand);' "$luci_rpc_path"
     fi
 
-    install -Dm755 "$BASE_PATH/patches/cpuusage" "$qualcommax_sbin_dir/cpuusage"
-    echo "✓ 已接入 NN6000V2 CPU/NSS/ECM 状态信息"
+    local old_script_path="$BUILD_DIR/package/base-files/files/sbin/cpuusage"
+    if [ -f "$old_script_path" ]; then
+        rm -f "$old_script_path"
+    fi
+
+    if [ -d "$BUILD_DIR/target/linux/qualcommax" ]; then
+        install -Dm755 "$BASE_PATH/patches/cpuusage" "$qualcommax_sbin_dir/cpuusage"
+    fi
 }
 
 update_nss_diag() {
