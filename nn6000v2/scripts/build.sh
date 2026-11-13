@@ -60,6 +60,10 @@ grep -qx 'CONFIG_USE_APK=y' .config || {
     echo "ERROR: APK package manager is not enabled after make defconfig." >&2
     exit 1
 }
+if grep -qx 'CONFIG_USE_OPKG=y' .config; then
+    echo "ERROR: OPKG is enabled; this build must use APK only." >&2
+    exit 1
+fi
 grep -qx 'CONFIG_PACKAGE_luci-i18n-base-zh-cn=y' .config || {
     echo "ERROR: luci-i18n-base-zh-cn was not selected; check the LuCI feed/package name." >&2
     exit 1
