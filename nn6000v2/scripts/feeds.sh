@@ -39,9 +39,9 @@ install_feeds() {
     echo "===== 安装本次固件明确需要的软件包 ====="
     ./scripts/feeds update -i
 
+    install_luci_base
     install_openwrt_packages
     install_nginx_packages
-    install_docker_packages
 
     echo "===== 指定软件包安装完成（没有全量安装第三方 feed） ====="
 }
