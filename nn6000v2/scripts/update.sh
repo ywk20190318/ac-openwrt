@@ -53,7 +53,7 @@ main() {
     remove_tweaked_packages
 
     echo "===== 精简脚本执行完成 ====="
-    echo "使用原版 LuCI + firewall4/nftables；不安装 QuickFile、Nginx、Docker/Podman 或代理套件。"
+    echo "使用原版 LuCI + firewall4/nftables；不安装 QuickFile、Nginx、iptables-nft 用户态、Docker/Podman 或代理套件。"
 }
 
 main "$@"
