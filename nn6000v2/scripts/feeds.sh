@@ -41,6 +41,7 @@ install_feeds() {
 
     install_openwrt_packages
     install_nginx_packages
+    install_docker_packages
 
     echo "===== 指定软件包安装完成（没有全量安装第三方 feed） ====="
 }
