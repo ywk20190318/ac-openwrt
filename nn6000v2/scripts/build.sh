@@ -1,112 +1,107 @@
 #!/usr/bin/env bash
+set -Eeuo pipefail
 
-set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$BASE_PATH/.." && pwd)"
 
-# Determine nn6000v2 path
-if [ -d "nn6000v2" ]; then
-    NN6000V2_PATH="nn6000v2"
-elif [ -d "../nn6000v2" ]; then
-    NN6000V2_PATH="../nn6000v2"
-else
-    echo "Error: nn6000v2 directory not found!"
-    exit 1
-fi
+DEV="${1:?Usage: $0 <device_model> [debug]}"
+BUILD_MOD="${2:-}"
+CONFIG_FILE="$BASE_PATH/configs/kernel/${DEV}.config"
+INI_FILE="$BASE_PATH/configs/${DEV}.ini"
+BUILD_DIR="$REPO_ROOT/action_build"
 
-BASE_PATH=$(cd "$NN6000V2_PATH" && pwd)
+[[ -f "$CONFIG_FILE" ]] || { echo "Missing config: $CONFIG_FILE" >&2; exit 1; }
+[[ -f "$INI_FILE" ]] || { echo "Missing device ini: $INI_FILE" >&2; exit 1; }
+[[ -d "$BUILD_DIR" ]] || { echo "Missing source tree: $BUILD_DIR (run pre_clone_action.sh first)" >&2; exit 1; }
 
-Dev=$1
-Build_Mod=$2
+read_ini() {
+    local key="$1"
+    awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$INI_FILE"
+}
 
-CONFIG_FILE="$BASE_PATH/configs/kernel/$Dev.config"
-INI_FILE="$BASE_PATH/configs/$Dev.ini"
+REPO_URL="$(read_ini REPO_URL)"
+REPO_BRANCH="$(read_ini REPO_BRANCH)"
+REPO_BRANCH="${REPO_BRANCH:-main}"
+COMMIT_HASH="$(read_ini COMMIT_HASH)"
+COMMIT_HASH="${COMMIT_HASH:-none}"
 
-if [[ ! -f $CONFIG_FILE ]]; then
-    echo "Config not found: $CONFIG_FILE"
-    exit 1
-fi
+# Keep the existing modular update pipeline and its package/system customizations.
+"$SCRIPT_DIR/update.sh" "$REPO_URL" "$REPO_BRANCH" "$BUILD_DIR" "$COMMIT_HASH"
 
-if [[ ! -f $INI_FILE ]]; then
-    echo "INI file not found: $INI_FILE"
-    exit 1
-fi
-
-read_ini_by_key() {
-    local key=$1
-    awk -F"=" -v key="$key" '$1 == key {print $2}' "$INI_FILE"
+apply_config() {
+    cp -f "$CONFIG_FILE" "$BUILD_DIR/.config"
+    if grep -qE 'CONFIG_TARGET_qualcommax_ipq60xx=y|CONFIG_TARGET_qualcommax_ipq807x=y' "$BUILD_DIR/.config" &&
+       ! grep -q '^CONFIG_GIT_MIRROR' "$BUILD_DIR/.config"; then
+        cat "$BASE_PATH/configs/kernel/nss.config" >> "$BUILD_DIR/.config"
+    fi
 }
 
 remove_uhttpd_dependency() {
-    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
-    local luci_makefile_path="$BASE_PATH/../$BUILD_DIR/feeds/luci/collections/luci/Makefile"
-
-    if grep -q "CONFIG_PACKAGE_luci-app-quickfile=y" "$config_path"; then
-        if [ -f "$luci_makefile_path" ]; then
-            sed -i '/luci-light/d' "$luci_makefile_path"
-            echo "Removed uhttpd (luci-light) dependency as luci-app-quickfile (nginx) is enabled."
-        fi
+    local config_path="$BUILD_DIR/.config"
+    local luci_makefile="$BUILD_DIR/feeds/luci/collections/luci/Makefile"
+    if grep -q '^CONFIG_PACKAGE_luci-app-quickfile=y' "$config_path" && [[ -f "$luci_makefile" ]]; then
+        sed -i '/luci-light/d' "$luci_makefile"
+        echo "Removed luci-light dependency for QuickFile/Nginx profile."
     fi
 }
 
-apply_config() {
-    \cp -f "$CONFIG_FILE" "$BASE_PATH/../$BUILD_DIR/.config"
-    
-    if grep -qE "(ipq60xx|ipq807x)" "$BASE_PATH/../$BUILD_DIR/.config" &&
-        ! grep -q "CONFIG_GIT_MIRROR" "$BASE_PATH/../$BUILD_DIR/.config"; then
-        cat "$BASE_PATH/configs/kernel/nss.config" >> "$BASE_PATH/../$BUILD_DIR/.config"
+modify_kernel_size() {
+    local image_mk="$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
+    if [[ -f "$image_mk" ]]; then
+        sed -i '/link_nn6000-common/,/endef/{s/KERNEL_SIZE := 6144k/KERNEL_SIZE := 12288k/g;}' "$image_mk"
+        echo "Checked NN6000 kernel partition size."
+    else
+        echo "WARNING: $image_mk not found; kernel size was not modified." >&2
     fi
-
 }
-
-REPO_URL=$(read_ini_by_key "REPO_URL")
-REPO_BRANCH=$(read_ini_by_key "REPO_BRANCH")
-REPO_BRANCH=${REPO_BRANCH:-main}
-BUILD_DIR=$(read_ini_by_key "BUILD_DIR")
-COMMIT_HASH=$(read_ini_by_key "COMMIT_HASH")
-COMMIT_HASH=${COMMIT_HASH:-none}
-
-if [[ -d action_build ]]; then
-    BUILD_DIR="action_build"
-fi
-
-"$BASE_PATH/scripts/update.sh" "$REPO_URL" "$REPO_BRANCH" "$BUILD_DIR" "$COMMIT_HASH"
 
 apply_config
 remove_uhttpd_dependency
-
-# Modify kernel size to 12MB for ipq60xx devices
-modify_kernel_size() {
-    local ipq60xx_mk_path="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
-    
-    if [ -f "$ipq60xx_mk_path" ]; then
-        # Change KERNEL_SIZE from 6144k to 12288k for link_nn6000 devices
-        sed -i '/link_nn6000-common/,/endef/{s/KERNEL_SIZE := 6144k/KERNEL_SIZE := 12288k/g}' "$ipq60xx_mk_path"
-        echo "Updated KERNEL_SIZE to 12288k (12MB) for link_nn6000 devices"
-    fi
-}
-
 modify_kernel_size
 
-cd "$BASE_PATH/../$BUILD_DIR"
+cd "$BUILD_DIR"
 make defconfig
 
-if [[ $Build_Mod == "debug" ]]; then
+if [[ "$BUILD_MOD" == "debug" ]]; then
+    echo "Debug mode: configuration prepared; build skipped."
     exit 0
 fi
 
-TARGET_DIR="$BASE_PATH/../$BUILD_DIR/bin/targets"
-if [[ -d $TARGET_DIR ]]; then
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec rm -f {} +
-fi
-
-make download -j$(($(nproc) * 2))
-make -j$(($(nproc) + 1)) || make -j1 V=s
-
-FIRMWARE_DIR="$BASE_PATH/../firmware"
-\rm -rf "$FIRMWARE_DIR"
+TARGET_DIR="$BUILD_DIR/bin/targets"
+FIRMWARE_DIR="$REPO_ROOT/firmware"
+rm -rf "$FIRMWARE_DIR"
 mkdir -p "$FIRMWARE_DIR"
-find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
-\rm -f "$BASE_PATH/../firmware/Packages.manifest" 2>/dev/null
 
-if [[ -d action_build ]]; then
-    make clean
+# Remove only old target artifacts; keep build/staging and compiler cache intact.
+if [[ -d "$TARGET_DIR" ]]; then
+    find "$TARGET_DIR" -type f \( \
+        -name '*.bin' -o -name '*.manifest' -o -name '*efi.img.gz' \
+        -o -name '*.itb' -o -name '*.fip' -o -name '*.ubi' \
+        -o -name '*rootfs.tar.gz' \
+    \) -delete
 fi
+
+make download -j"$(($(nproc) * 2))"
+if ! make -j"$(($(nproc) + 1))"; then
+    echo "Parallel build failed; retrying serial verbose build..." >&2
+    make -j1 V=s
+fi
+
+[[ -d "$TARGET_DIR" ]] || { echo "Target output directory missing: $TARGET_DIR" >&2; exit 1; }
+
+find "$TARGET_DIR" -type f \( \
+    -name '*.bin' -o -name '*.manifest' -o -name '*efi.img.gz' \
+    -o -name '*.itb' -o -name '*.fip' -o -name '*.ubi' \
+    -o -name '*rootfs.tar.gz' \
+\) -exec cp -f {} "$FIRMWARE_DIR/" \;
+
+rm -f "$FIRMWARE_DIR/Packages.manifest"
+if ! find "$FIRMWARE_DIR" -maxdepth 1 -type f | grep -q .; then
+    echo "ERROR: build completed but no firmware artifacts were collected." >&2
+    exit 1
+fi
+
+echo "===== Firmware artifacts ====="
+find "$FIRMWARE_DIR" -maxdepth 1 -type f -printf '%f (%s bytes)\n' | sort
+echo "===== Compiler cache preserved at $BUILD_DIR/.ccache ====="
