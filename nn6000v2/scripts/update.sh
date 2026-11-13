@@ -27,7 +27,7 @@ source "$SCRIPT_DIR/packages.sh"
 source "$SCRIPT_DIR/system.sh"
 
 main() {
-    echo "===== NN6000V2 官方精简固件：无 Docker 方案 ====="
+    echo "===== NN6000V2 极度精简实用固件 ====="
 
     clone_repo
     clean_up
@@ -59,7 +59,7 @@ main() {
     update_uwsgi_limit_as
 
     echo "===== 精简脚本执行完成 ====="
-    echo "本方案不安装 Docker、dockerd、Dockerman 或 Docker 相关依赖。"
+    echo "不预装 Docker、Dockerman、Podman、代理套件或其他容器运行时。"
 }
 
 main "$@"
