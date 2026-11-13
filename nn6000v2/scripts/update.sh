@@ -36,6 +36,7 @@ main() {
     cd "$BUILD_DIR"
 
     update_feeds
+    fix_kernel_netfilter_package_conflict
     install_feeds
 
     # 首次启动默认配置、温度显示、LAN 与 WiFi
