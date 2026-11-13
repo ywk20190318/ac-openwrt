@@ -18,6 +18,12 @@ fix_default_set() {
             "$defaults_dir/994_set_luci_zh_cn"
     fi
 
+    # APK feeds use the NJU mirror for mainland-China accessibility.
+    if [[ -f "$BASE_PATH/patches/995_set_apk_mirror" ]]; then
+        install -Dm755 "$BASE_PATH/patches/995_set_apk_mirror" \
+            "$defaults_dir/995_set_apk_mirror"
+    fi
+
     if [[ -f "$BASE_PATH/patches/993_set_pppoe.sh" ]]; then
         install -Dm755 "$BASE_PATH/patches/993_set_pppoe.sh" \
             "$defaults_dir/993_set_pppoe.sh"
