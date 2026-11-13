@@ -54,6 +54,18 @@ modify_kernel_size
 cd "$BUILD_DIR"
 make defconfig
 
+# Fail early if APK or the Simplified Chinese LuCI translation was dropped
+# by Kconfig/feeds resolution; do not silently publish an OPKG or English-only image.
+grep -qx 'CONFIG_USE_APK=y' .config || {
+    echo "ERROR: APK package manager is not enabled after make defconfig." >&2
+    exit 1
+}
+grep -qx 'CONFIG_PACKAGE_luci-i18n-base-zh-cn=y' .config || {
+    echo "ERROR: luci-i18n-base-zh-cn was not selected; check the LuCI feed/package name." >&2
+    exit 1
+}
+echo "Verified: APK package manager + Simplified Chinese LuCI."
+
 if [[ "$BUILD_MOD" == "debug" ]]; then
     echo "Debug mode: configuration prepared; build skipped."
     exit 0
