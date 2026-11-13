@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -Eeuo pipefail
 
 update_feeds() {
     local feeds_path="$BUILD_DIR/$FEEDS_CONF"
@@ -12,23 +13,17 @@ update_feeds() {
         return 1
     fi
 
-    # 清理旧的本地链接源和已明确弃用的 PassWall 源
+    # Remove obsolete local links / retired PassWall feed entries only.
     sed -i '/^src-link[[:space:]]/d' "$feeds_path"
     sed -i '/passwall_packages/d' "$feeds_path"
     sed -i '/passwall-packages/d' "$feeds_path"
 
-    # QuickFile 使用 openwrt-packages feed；只安装明确指定的包，不全量安装 feed
-    if ! grep -q 'openwrt-packages.git' "$feeds_path"; then
-        printf '\n%s\n' \
-            'src-git openwrt_packages https://github.com/kenzok8/openwrt-packages.git' \
-            >> "$feeds_path"
-    fi
-
+    # Keep the source's standard official feeds; do not inject third-party feeds.
     if [[ ! -f "$BUILD_DIR/include/bpf.mk" ]]; then
         touch "$BUILD_DIR/include/bpf.mk"
     fi
 
-    echo "===== 更新官方及 QuickFile 所需 feeds ====="
+    echo "===== 更新源码默认 feeds ====="
     ./scripts/feeds clean
     ./scripts/feeds update -a
 }
@@ -36,12 +31,9 @@ update_feeds() {
 install_feeds() {
     cd "$BUILD_DIR"
 
-    echo "===== 安装本次固件明确需要的软件包 ====="
+    echo "===== 安装原版 LuCI collection ====="
     ./scripts/feeds update -i
-
     install_luci_base
-    install_openwrt_packages
-    install_nginx_packages
 
-    echo "===== 指定软件包安装完成（没有全量安装第三方 feed） ====="
+    echo "===== LuCI feed 安装完成；不安装 QuickFile / Nginx / 第三方代理包 ====="
 }
