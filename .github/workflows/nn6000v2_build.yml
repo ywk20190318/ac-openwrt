@@ -1,0 +1,169 @@
+name: NN6000V2 Official Minimal Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_patchver:
+        description: "OpenWrt KERNEL_PATCHVER (e.g. 6.6). Leave blank to use source default."
+        required: false
+        default: "6.6"
+        type: string
+      clean_ccache:
+        description: "Ignore previous ccache and start a fresh compiler cache"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  actions: write
+  contents: write
+
+env:
+  DEVICE_MODEL: link_nn6000v2_immwrt
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout build scripts
+        uses: actions/checkout@v4
+
+      - name: Initialize build environment
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo bash -c 'bash <(curl -fsSL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+          sudo apt-get update
+          sudo apt-get install -y dos2unix libfuse-dev gh
+          sudo timedatectl set-timezone Asia/Shanghai
+
+      - name: Set build metadata
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BUILD_DATE="$(date '+%y.%m.%d_%H.%M.%S')"
+          CONFIG_FILE="nn6000v2/configs/${DEVICE_MODEL}.ini"
+          test -f "$CONFIG_FILE"
+          BUILD_SRC="$(awk -F= '$1=="REPO_URL" {sub(/^[^=]*=/,""); print; exit}' "$CONFIG_FILE")"
+          BUILD_BRANCH="$(awk -F= '$1=="REPO_BRANCH" {sub(/^[^=]*=/,""); print; exit}' "$CONFIG_FILE")"
+          BUILD_BRANCH="${BUILD_BRANCH:-main}"
+          {
+            echo "BUILD_DATE=$BUILD_DATE"
+            echo "BUILD_SRC=$BUILD_SRC"
+            echo "BUILD_BRANCH=$BUILD_BRANCH"
+          } >> "$GITHUB_ENV"
+
+      - name: Prepare source checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          chmod +x nn6000v2/scripts/*.sh
+          ./nn6000v2/scripts/pre_clone_action.sh "$DEVICE_MODEL"
+
+      - name: Apply kernel patch version
+        if: ${{ inputs.kernel_patchver != '' }}
+        shell: bash
+        env:
+          KERNEL_PATCHVER: ${{ inputs.kernel_patchver }}
+        run: |
+          set -Eeuo pipefail
+          case "$KERNEL_PATCHVER" in
+            *[!0-9.]*|'')
+              echo "Invalid KERNEL_PATCHVER: $KERNEL_PATCHVER" >&2
+              exit 1
+              ;;
+          esac
+          if [[ ! "$KERNEL_PATCHVER" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "Use major.minor format, for example 6.6 (not 6.6.122)." >&2
+            exit 1
+          fi
+          MAKEFILE="action_build/target/linux/qualcommax/Makefile"
+          test -f "$MAKEFILE" || {
+            echo "Missing target Makefile: $MAKEFILE" >&2
+            exit 1
+          }
+          grep -qE '^KERNEL_PATCHVER[:?+]?=' "$MAKEFILE" || {
+            echo "KERNEL_PATCHVER not found in $MAKEFILE; refusing unsafe append." >&2
+            exit 1
+          }
+          sed -i -E "s/^KERNEL_PATCHVER[:?+]?=.*/KERNEL_PATCHVER:=${KERNEL_PATCHVER}/" "$MAKEFILE"
+          grep -n '^KERNEL_PATCHVER' "$MAKEFILE"
+
+      - name: Restore compiler cache
+        if: ${{ !inputs.clean_ccache }}
+        uses: actions/cache@v4
+        with:
+          path: action_build/.ccache
+          key: ${{ runner.os }}-nn6000v2-ccache-${{ hashFiles('repo_flag', 'nn6000v2/configs/kernel/link_nn6000v2_immwrt.config') }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-nn6000v2-ccache-${{ hashFiles('repo_flag', 'nn6000v2/configs/kernel/link_nn6000v2_immwrt.config') }}-
+
+      - name: Build firmware
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ./nn6000v2/scripts/build.sh "$DEVICE_MODEL"
+
+      - name: Validate firmware output
+        id: firmware
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -d firmware
+          find firmware -maxdepth 1 -type f -printf '%f\n' | sort
+          IMAGE_COUNT="$(find firmware -maxdepth 1 -type f \( -name '*.bin' -o -name '*.img' -o -name '*.itb' -o -name '*.ubi' -o -name '*.fip' -o -name '*.tar.gz' \) | wc -l)"
+          if [[ "$IMAGE_COUNT" -lt 1 ]]; then
+            echo "No firmware image found in ./firmware" >&2
+            exit 1
+          fi
+          MANIFEST="$(find firmware -maxdepth 1 -type f -name '*.manifest' -print -quit)"
+          if [[ -n "$MANIFEST" ]]; then
+            KVER="$(awk '$1=="kernel" {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.[0-9]+\.[0-9]+/) {print $i; exit}}' "$MANIFEST")"
+          fi
+          KVER="${KVER:-unknown}"
+          echo "KVER=$KVER" >> "$GITHUB_ENV"
+          echo "IMAGE_COUNT=$IMAGE_COUNT" >> "$GITHUB_OUTPUT"
+          du -sh firmware
+
+      - name: Machine information
+        shell: bash
+        run: |
+          echo "===== CPU ====="
+          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core' || true
+          echo "===== DISK ====="
+          df -h
+          echo "===== CCACHE ====="
+          du -sh action_build/.ccache 2>/dev/null || true
+
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          {
+            echo "NN6000V2 官方精简固件"
+            echo
+            echo "- Device: ${DEVICE_MODEL}"
+            echo "- Source: ${BUILD_SRC}"
+            echo "- Branch: ${BUILD_BRANCH}"
+            echo "- Build: ${BUILD_DATE}"
+            echo "- Kernel: ${KVER}"
+            echo "- LAN: 10.0.0.1"
+            echo "- Wi-Fi default password: 88888888"
+            echo "- QuickFile: enabled"
+            echo "- Nginx: HTTP only"
+            echo "- Docker/Dockerman: disabled"
+          } > release_body.txt
+
+      - name: Publish firmware
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nn6000v2-${{ env.BUILD_DATE }}
+          name: NN6000V2-${{ env.BUILD_DATE }}
+          body_path: release_body.txt
+          files: firmware/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
