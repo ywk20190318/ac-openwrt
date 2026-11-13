@@ -64,11 +64,11 @@ if grep -qx 'CONFIG_USE_OPKG=y' .config; then
     echo "ERROR: OPKG is enabled; this build must use APK only." >&2
     exit 1
 fi
-grep -qx 'CONFIG_PACKAGE_luci-i18n-base-zh-cn=y' .config || {
-    echo "ERROR: luci-i18n-base-zh-cn was not selected; check the LuCI feed/package name." >&2
+grep -qx 'CONFIG_LUCI_LANG_zh_Hans=y' .config || {
+    echo "ERROR: LuCI Simplified Chinese language option was not enabled after make defconfig." >&2
     exit 1
 }
-echo "Verified: APK package manager + Simplified Chinese LuCI."
+echo "Verified: APK package manager + LuCI Simplified Chinese language selection."
 
 if [[ "$BUILD_MOD" == "debug" ]]; then
     echo "Debug mode: configuration prepared; build skipped."
