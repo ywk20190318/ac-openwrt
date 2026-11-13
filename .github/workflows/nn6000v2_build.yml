@@ -150,12 +150,11 @@ jobs:
             echo "- Build: ${BUILD_DATE}"
             echo "- Kernel: ${KVER}"
             echo "- LAN: 10.0.0.1"
-            echo "- LuCI / DHCP / static leases: enabled"
-            echo "- QuickFile: enabled"
-            echo "- Nginx: HTTP only"
+            echo "- Original LuCI / DHCP / static leases: enabled"
+            echo "- Firewall: firewall4 + native nftables (no iptables compatibility layer)"
             echo "- NSS / Wi-Fi / board drivers: retained"
             echo "- USB storage and common filesystems: enabled"
-            echo "- Docker / Dockerman / Podman: not included"
+            echo "- QuickFile / Nginx / Docker / Dockerman / Podman: not included"
             echo "- Proxy components: not preinstalled"
           } > release_body.txt
 
