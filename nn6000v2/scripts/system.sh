@@ -12,6 +12,12 @@ fix_default_set() {
     install -Dm755 "$BASE_PATH/patches/992_set-wifi-uci.sh" \
         "$defaults_dir/992_set-wifi-uci.sh"
 
+    # LuCI 默认使用简体中文；同时保留用户后续在界面中修改语言的能力。
+    if [[ -f "$BASE_PATH/patches/994_set_luci_zh_cn" ]]; then
+        install -Dm755 "$BASE_PATH/patches/994_set_luci_zh_cn" \
+            "$defaults_dir/994_set_luci_zh_cn"
+    fi
+
     if [[ -f "$BASE_PATH/patches/993_set_pppoe.sh" ]]; then
         install -Dm755 "$BASE_PATH/patches/993_set_pppoe.sh" \
             "$defaults_dir/993_set_pppoe.sh"
