@@ -1,4 +1,4 @@
-
+#!/usr/bin/env bash
 fix_kernel_netfilter_package_conflict() {
     local file="$BUILD_DIR/package/kernel/linux/modules/netfilter.mk"
     local patch_file="$BUILD_DIR/.nn6000v2-netfilter-fix.patch"
@@ -88,7 +88,6 @@ PATCH
     rm -f "$patch_file"
 }
 
-#!/usr/bin/env bash
 
 fix_default_set() {
     local defaults_dir="$BUILD_DIR/package/base-files/files/etc/uci-defaults"
