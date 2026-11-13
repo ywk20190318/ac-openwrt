@@ -22,7 +22,6 @@ index 0000000..0000000 100644
 @@ -52,30 +52,13 @@ endef
  $(eval $(call KernelPackage,nf-conncount))
  
- 
 -define KernelPackage/iptables
 -  SUBMENU:=$(NF_MENU)
 -  TITLE:=Iptables legacy
