@@ -35,5 +35,5 @@ install_feeds() {
     ./scripts/feeds update -i
     install_luci_base
 
-    echo "===== LuCI feed 安装完成；不安装 QuickFile / Nginx / 第三方代理包 ====="
+    echo "===== 完成：只安装原版 LuCI；不额外安装服务插件 ====="
 }
