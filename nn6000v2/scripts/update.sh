@@ -27,7 +27,7 @@ source "$SCRIPT_DIR/packages.sh"
 source "$SCRIPT_DIR/system.sh"
 
 main() {
-    echo "===== NN6000V2 原版 LuCI + nftables 精简固件 ====="
+    echo "===== NN6000V2 原版系统 + NSS 网络优化 + LuCI ====="
 
     clone_repo
     clean_up
@@ -36,7 +36,6 @@ main() {
     cd "$BUILD_DIR"
 
     update_feeds
-    fix_kernel_netfilter_package_conflict
     install_feeds
 
     # 首次启动默认配置、温度显示、LAN 与 WiFi
@@ -53,7 +52,7 @@ main() {
     remove_tweaked_packages
 
     echo "===== 精简脚本执行完成 ====="
-    echo "使用原版 LuCI + firewall4/nftables；不安装 QuickFile、Nginx、iptables-nft 用户态、Docker/Podman 或代理套件。"
+    echo "保留上游默认系统服务、NSS/无线/板级驱动及原版 LuCI；不额外安装第三方服务插件。防火墙使用 firewall4/nftables。"
 }
 
 main "$@"
