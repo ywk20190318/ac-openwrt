@@ -47,6 +47,7 @@ main() {
     update_dnsmasq_conf
     update_nss_diag
     update_affinity_script
+    update_cpuusage
     update_script_priority
     fix_kconfig_recursive_dependency
     remove_tweaked_packages
