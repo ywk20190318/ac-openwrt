@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+install_luci_base() {
+    echo "安装 LuCI 基础集合（default-settings 依赖）..."
+    ./scripts/feeds install -p luci -f luci
+}
+
 install_openwrt_packages() {
     echo "安装 QuickFile 及其必要依赖..."
     ./scripts/feeds install -p openwrt_packages -f \
@@ -18,25 +23,6 @@ install_nginx_packages() {
         nginx-mod-ubus \
         uwsgi \
         uwsgi-luci-support
-}
-
-install_docker_packages() {
-    echo "安装 Docker Engine、运行时和 Dockerman 管理界面..."
-    # Runtime packages are supplied by the OpenWrt packages feed.
-    ./scripts/feeds install -p packages -f \
-        docker \
-        dockerd \
-        containerd \
-        runc \
-        docker-compose \
-        cgroupfs-mount
-
-    # Dockerman LuCI application and its libraries are supplied by the LuCI feed.
-    ./scripts/feeds install -p luci -f \
-        luci-app-dockerman \
-        luci-lib-docker \
-        luci-compat \
-        ttyd
 }
 
 install_quickfile() {
