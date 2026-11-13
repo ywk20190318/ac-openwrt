@@ -1,3 +1,93 @@
+
+fix_kernel_netfilter_package_conflict() {
+    local file="$BUILD_DIR/package/kernel/linux/modules/netfilter.mk"
+    local patch_file="$BUILD_DIR/.nn6000v2-netfilter-fix.patch"
+
+    [[ -f "$file" ]] || {
+        echo "错误：找不到内核 netfilter 包定义：$file" >&2
+        return 1
+    }
+
+    # Already fixed upstream: the legacy kmod-iptables split package is absent.
+    if ! grep -q '^define KernelPackage/iptables$' "$file"; then
+        echo "✓ netfilter 内核包冲突修复已存在，跳过"
+        return 0
+    fi
+
+    cat > "$patch_file" <<'PATCH'
+diff --git a/package/kernel/linux/modules/netfilter.mk b/package/kernel/linux/modules/netfilter.mk
+index 0000000..0000000 100644
+--- a/package/kernel/linux/modules/netfilter.mk
++++ b/package/kernel/linux/modules/netfilter.mk
+@@ -52,30 +52,13 @@ endef
+ $(eval $(call KernelPackage,nf-conncount))
+ 
+ 
+-define KernelPackage/iptables
+-  SUBMENU:=$(NF_MENU)
+-  TITLE:=Iptables legacy
+-  KCONFIG:= \
+-	CONFIG_IP_NF_IPTABLES_LEGACY \
+-	CONFIG_NETFILTER_XTABLES \
+-	CONFIG_NETFILTER_XTABLES_LEGACY=y \
+-	CONFIG_IP6_NF_IPTABLES_LEGACY \
+-	CONFIG_BRIDGE_NF_EBTABLES_LEGACY
+-  HIDDEN:=1
+-  DEPENDS:=@!LINUX_6_12
+-  FILES:= \
+-	$(LINUX_DIR)/net/ipv4/netfilter/ip_tables.ko \
+-	$(LINUX_DIR)/net/netfilter/x_tables.ko
+-  AUTOLOAD:=$(call AutoProbe,$(notdir ip_tables x_tables))
+-endef
+-
+-$(eval $(call KernelPackage,iptables))
+-
+-
+ define KernelPackage/nf-ipt
+   SUBMENU:=$(NF_MENU)
+   TITLE:=Iptables core
+-  KCONFIG:=$(KCONFIG_NF_IPT)
+-  DEPENDS:=+!LINUX_6_12:kmod-iptables
++  KCONFIG:= \
++	$(KCONFIG_NF_IPT) \
++	CONFIG_IP_NF_IPTABLES_LEGACY \
++	CONFIG_NETFILTER_XTABLES_LEGACY=y
+   FILES:=$(foreach mod,$(NF_IPT-m),$(LINUX_DIR)/net/$(mod).ko)
+   AUTOLOAD:=$(call AutoProbe,$(notdir $(NF_IPT-m)))
+ endef
+@@ -86,7 +69,9 @@ $(eval $(call KernelPackage,nf-ipt))
+ define KernelPackage/nf-ipt6
+   SUBMENU:=$(NF_MENU)
+   TITLE:=Ip6tables core
+-  KCONFIG:=$(KCONFIG_NF_IPT6)
++  KCONFIG:= \
++	$(KCONFIG_NF_IPT6) \
++	CONFIG_IP6_NF_IPTABLES_LEGACY
+   FILES:=$(foreach mod,$(NF_IPT6-m),$(LINUX_DIR)/net/$(mod).ko)
+   AUTOLOAD:=$(call AutoProbe,$(notdir $(NF_IPT6-m)))
+   DEPENDS:=+kmod-nf-ipt +kmod-nf-log6
+@@ -1085,7 +1070,9 @@ define KernelPackage/ebtables
+   TITLE:=Bridge firewalling modules
+   DEPENDS:=+kmod-ipt-core
+   FILES:=$(foreach mod,$(EBTABLES-m),$(LINUX_DIR)/net/$(mod).ko)
+-  KCONFIG:=$(KCONFIG_EBTABLES)
++  KCONFIG:= \
++	$(KCONFIG_EBTABLES) \
++	CONFIG_BRIDGE_NF_EBTABLES_LEGACY
+   AUTOLOAD:=$(call AutoProbe,$(notdir $(EBTABLES-m)))
+ endef
+PATCH
+
+    if git -C "$BUILD_DIR" apply --check "$patch_file"; then
+        git -C "$BUILD_DIR" apply "$patch_file"
+        echo "✓ 已应用 OpenWrt 上游 netfilter 重复模块修复"
+    else
+        echo "错误：netfilter.mk 与预期上游版本不匹配，拒绝盲目修改。" >&2
+        return 1
+    fi
+    rm -f "$patch_file"
+}
+
 #!/usr/bin/env bash
 
 fix_default_set() {
@@ -104,81 +194,3 @@ remove_tweaked_packages() {
     fi
 }
 
-update_nginx_ubus_module() {
-    local makefile="$BUILD_DIR/feeds/packages/net/nginx/Makefile"
-
-    local source_date="2024-03-02"
-    local source_version="564fa3e9c2b04ea298ea659b793480415da26415"
-    local mirror_hash="92c9ab94d88a2fe8d7d1e8a15d15cfc4d529fdc357ed96d22b65d5da3dd24d7f"
-
-    if [[ -f "$makefile" ]]; then
-        sed -i \
-            -e "s/SOURCE_DATE:=2020-09-06/SOURCE_DATE:=$source_date/g" \
-            -e "s/SOURCE_VERSION:=b2d7260dcb428b2fb65540edb28d7538602b4a26/SOURCE_VERSION:=$source_version/g" \
-            -e "s/MIRROR_HASH:=515bb9d355ad80916f594046a45c190a68fb6554d6795a54ca15cab8bdd12fda/MIRROR_HASH:=$mirror_hash/g" \
-            "$makefile"
-    else
-        echo "警告：未找到 Nginx Makefile，跳过 ubus 模块版本修正。" >&2
-    fi
-}
-
-fix_nginx_configure() {
-    local makefile="$BUILD_DIR/feeds/packages/net/nginx/Makefile"
-
-    if [[ -f "$makefile" ]]; then
-        sed -i \
-            -e 's/--target=[^ ]*[[:space:]]//g' \
-            -e 's/--host=[^ ]*[[:space:]]//g' \
-            -e 's/--disable-dependency-tracking[[:space:]]//g' \
-            -e 's/--program-prefix=[^ ]*[[:space:]]//g' \
-            -e 's/--program-suffix=[^ ]*[[:space:]]//g' \
-            "$makefile"
-    fi
-}
-
-set_nginx_default_config() {
-    local nginx_config="$BUILD_DIR/feeds/packages/net/nginx-util/files/nginx.config"
-
-    if [[ -f "$nginx_config" ]]; then
-        # 只监听 HTTP/80，不生成 HTTPS/443 监听项
-        cat > "$nginx_config" <<'EOF'
-config main 'global'
-        option uci_enable 'true'
-
-config server 'http_only'
-        list listen '80'
-        list listen '[::]:80'
-        option server_name '_lan'
-        list include 'restrict_locally'
-        list include 'conf.d/*.locations'
-        option access_log 'off; # logd openwrt'
-EOF
-        echo "✓ Nginx 已设置为 HTTP only"
-    else
-        echo "警告：未找到 nginx-util 配置模板：$nginx_config" >&2
-    fi
-
-    local nginx_template="$BUILD_DIR/feeds/packages/net/nginx-util/files/uci.conf.template"
-    if [[ -f "$nginx_template" ]] &&
-       ! grep -q 'client_body_in_file_only clean;' "$nginx_template"; then
-        sed -i '/client_max_body_size 128M;/a\
-\tclient_body_in_file_only clean;\
-\tclient_body_temp_path /mnt/tmp;' "$nginx_template"
-    fi
-
-    local luci_support="$BUILD_DIR/feeds/packages/net/nginx/files-luci-support/60_nginx-luci-support"
-    if [[ -f "$luci_support" ]] &&
-       ! grep -q 'client_body_in_file_only off;' "$luci_support"; then
-        sed -i '/ubus_parallel_req 2;/a\
-        client_body_in_file_only off;\
-        client_max_body_size 1M;' "$luci_support"
-    fi
-}
-
-update_uwsgi_limit_as() {
-    local cgi_ini="$BUILD_DIR/feeds/packages/net/uwsgi/files-luci-support/luci-cgi_io.ini"
-    local webui_ini="$BUILD_DIR/feeds/packages/net/uwsgi/files-luci-support/luci-webui.ini"
-
-    [[ ! -f "$cgi_ini" ]] || sed -i 's/^limit-as = .*/limit-as = 8192/' "$cgi_ini"
-    [[ ! -f "$webui_ini" ]] || sed -i 's/^limit-as = .*/limit-as = 8192/' "$webui_ini"
-}
