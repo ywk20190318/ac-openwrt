@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       kernel_patchver:
-        description: "OpenWrt KERNEL_PATCHVER (e.g. 6.6). Leave blank to use source default."
+        description: "Optional KERNEL_PATCHVER override (e.g. 6.6). Leave blank to use source default."
         required: false
-        default: "6.6"
+        default: ""
         type: string
       clean_ccache:
         description: "Ignore previous ccache and start a fresh compiler cache"
@@ -63,7 +63,7 @@ jobs:
           chmod +x nn6000v2/scripts/*.sh
           ./nn6000v2/scripts/pre_clone_action.sh "$DEVICE_MODEL"
 
-      - name: Apply kernel patch version
+      - name: Apply optional kernel patch version
         if: ${{ inputs.kernel_patchver != '' }}
         shell: bash
         env:
@@ -141,9 +141,8 @@ jobs:
       - name: Prepare release notes
         shell: bash
         run: |
-          set -Eeuo pipefail
           {
-            echo "NN6000V2 官方精简固件"
+            echo "NN6000V2 实用精简固件"
             echo
             echo "- Device: ${DEVICE_MODEL}"
             echo "- Source: ${BUILD_SRC}"
@@ -151,10 +150,10 @@ jobs:
             echo "- Build: ${BUILD_DATE}"
             echo "- Kernel: ${KVER}"
             echo "- LAN: 10.0.0.1"
-            echo "- Wi-Fi default password: 88888888"
             echo "- QuickFile: enabled"
             echo "- Nginx: HTTP only"
             echo "- Docker/Dockerman: disabled"
+            echo "- Proxy components: not preinstalled"
           } > release_body.txt
 
       - name: Publish firmware
