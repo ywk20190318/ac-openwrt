@@ -151,7 +151,7 @@ jobs:
             echo "- Kernel: ${KVER}"
             echo "- LAN: 10.0.0.1"
             echo "- Original LuCI / DHCP / static leases: enabled"
-            echo "- Firewall: firewall4 + native nftables (no iptables compatibility layer)"
+            echo "- Firewall: firewall4 + native nftables (iptables-nft userspace disabled)"
             echo "- NSS / Wi-Fi / board drivers: retained"
             echo "- USB storage and common filesystems: enabled"
             echo "- QuickFile / Nginx / Docker / Dockerman / Podman: not included"
