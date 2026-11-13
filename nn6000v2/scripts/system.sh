@@ -2,6 +2,11 @@
 fix_default_set() {
     local defaults_dir="$BUILD_DIR/package/base-files/files/etc/uci-defaults"
 
+    if [[ -f "$BASE_PATH/patches/990_set_argon_primary" ]]; then
+        install -Dm755 "$BASE_PATH/patches/990_set_argon_primary" \
+            "$defaults_dir/990_set_argon_primary"
+    fi
+
     install -Dm755 "$BASE_PATH/patches/991_custom_settings" \
         "$defaults_dir/991_custom_settings"
     install -Dm755 "$BASE_PATH/patches/992_set-wifi-uci.sh" \
