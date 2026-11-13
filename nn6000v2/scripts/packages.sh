@@ -20,6 +20,25 @@ install_nginx_packages() {
         uwsgi-luci-support
 }
 
+install_docker_packages() {
+    echo "安装 Docker Engine、运行时和 Dockerman 管理界面..."
+    # Runtime packages are supplied by the OpenWrt packages feed.
+    ./scripts/feeds install -p packages -f \
+        docker \
+        dockerd \
+        containerd \
+        runc \
+        docker-compose \
+        cgroupfs-mount
+
+    # Dockerman LuCI application and its libraries are supplied by the LuCI feed.
+    ./scripts/feeds install -p luci -f \
+        luci-app-dockerman \
+        luci-lib-docker \
+        luci-compat \
+        ttyd
+}
+
 install_quickfile() {
     local repo_url="https://github.com/sbwml/luci-app-quickfile.git"
     local target_dir="$BUILD_DIR/feeds/openwrt_packages/luci-app-quickfile"
