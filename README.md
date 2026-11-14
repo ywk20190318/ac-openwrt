@@ -48,6 +48,7 @@
 - `taskd`
 - `luci-lib-taskd`
 - `luci-lib-xterm`
+- `luci-lib-ipkg`
 
 Docker 管理相关组件保留；其中 dockerd 使用 iStoreOS 仓库的构建版本，但它是 Docker 后端，不是 iStore 商店插件，也不是上述商店辅助依赖。
 
