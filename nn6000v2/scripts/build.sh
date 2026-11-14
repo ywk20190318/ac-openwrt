@@ -71,6 +71,35 @@ if grep -Eq '^CONFIG_PACKAGE_(quickstart|luci-app-quickstart|istore|istorex|luci
 fi
 echo "检查通过：QuickStart 和 iStoreOS 商店相关组件均已禁用。"
 
+# Verify every package explicitly requested by the device config survived Kconfig.
+# make defconfig can silently drop unknown package symbols; do not let that turn
+# into a multi-hour build with missing drivers, utilities, or LuCI components.
+REQUESTED_PACKAGES=()
+while IFS= read -r package; do
+    [[ -n "$package" ]] && REQUESTED_PACKAGES+=("$package")
+done < <(sed -n 's/^CONFIG_PACKAGE_\\([^=]*\\)=y$/\\1/p' "$CONFIG_FILE" | sort -u)
+
+MISSING_PACKAGES=()
+for package in "${REQUESTED_PACKAGES[@]}"; do
+    if ! grep -qx "CONFIG_PACKAGE_${package}=y" .config; then
+        MISSING_PACKAGES+=("$package")
+    fi
+done
+if [[ ${#MISSING_PACKAGES[@]} -gt 0 ]]; then
+    echo "错误：以下设备配置中明确选择的软件包未通过 make defconfig，停止构建：" >&2
+    printf '  - %s\\n' "${MISSING_PACKAGES[@]}" >&2
+    exit 1
+fi
+echo "检查通过：设备配置中 ${#REQUESTED_PACKAGES[@]} 个显式软件包选择全部保留。"
+
+# Verify the exact NN6000 V2 device profile is still selected.
+grep -qx 'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_link_nn6000-v2=y' .config || {
+    echo "错误：make defconfig 后 NN6000 V2 设备 profile 丢失，停止构建。" >&2
+    exit 1
+}
+echo "检查通过：目标设备为 Link NN6000 V2（qualcommax/ipq60xx）。"
+
+
 # Fail early if APK or the Simplified Chinese LuCI translation was dropped
 # by Kconfig/feeds resolution; do not silently publish an OPKG or English-only image.
 grep -qx 'CONFIG_USE_APK=y' .config || {
@@ -154,13 +183,13 @@ if [[ ${#MISSING_KMODS[@]} -gt 0 ]]; then
     exit 1
 fi
 echo "检查通过：最终固件清单包含全部 ${#REQUIRED_KMODS[@]} 个显式选择的内核模块。"
-# Reject iStoreOS/iStoreX store packages even if selected indirectly by a feed.
-if grep -Eiq '(^|[[:space:]])(istore|istorex|luci-app-istore|luci-app-istorex|luci-app-store)([[:space:]]|$)' "$MANIFEST_FILE"; then
-    echo "错误：最终固件 manifest 仍包含 iStoreOS 商店相关软件包。" >&2
-    grep -Ein '(istore|luci-app-store)' "$MANIFEST_FILE" >&2 || true
+# Reject QuickStart and iStoreOS store packages even if selected indirectly by a feed.
+if grep -Eiq '(^|[[:space:]])(quickstart|luci-app-quickstart|istore|istorex|luci-app-istore|luci-app-istorex|luci-app-store)([[:space:]]|$)' "$MANIFEST_FILE"; then
+    echo "错误：最终固件 manifest 仍包含 QuickStart 或 iStoreOS 商店相关软件包。" >&2
+    grep -Ein '(quick.?start|istore|luci-app-store)' "$MANIFEST_FILE" >&2 || true
     exit 1
 fi
-echo "检查通过：最终固件 manifest 不包含 iStoreOS 商店相关软件包。"
+echo "检查通过：最终固件 manifest 不包含 QuickStart 和 iStoreOS 商店相关软件包。"
 
 
 if ! find "$FIRMWARE_DIR" -maxdepth 1 -type f | grep -q .; then
