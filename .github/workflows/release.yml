@@ -13,6 +13,11 @@ on:
         required: false
         default: '-'
         type: string
+      preflight_only:
+        description: '仅执行配置与补丁 prepare 检查，不进行完整编译'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -118,13 +123,18 @@ jobs:
           path.write_text(data)
           PY
 
-      - name: Build Wi-Fi-enabled firmware
+      - name: Build Wi-Fi-enabled firmware or run preflight only
         run: |
           set -euo pipefail
           chmod +x nn6000v2/scripts/*.sh
-          ./nn6000v2/scripts/build.sh "$DEVICE_MODEL"
+          if [ "${{ inputs.preflight_only }}" = "true" ]; then
+            ./nn6000v2/scripts/build.sh "$DEVICE_MODEL" debug
+          else
+            ./nn6000v2/scripts/build.sh "$DEVICE_MODEL"
+          fi
 
       - name: Prepare release notes
+        if: ${{ !inputs.preflight_only }}
         run: |
           set -euo pipefail
           manifest=$(find firmware -maxdepth 1 -type f -name '*.manifest' -print -quit)
@@ -144,6 +154,7 @@ jobs:
           } > release_body.txt
 
       - name: Publish release
+        if: ${{ !inputs.preflight_only }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.BUILD_DATE }}_${{ env.DEVICE_MODEL }}
