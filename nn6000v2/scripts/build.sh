@@ -70,24 +70,19 @@ grep -qx 'CONFIG_LUCI_LANG_zh_Hans=y' .config || {
 }
 echo "检查通过：已启用 APK 包管理器和 LuCI 简体中文语言。"
 
-# Validate every explicitly requested networking/kernel feature module.
-REQUIRED_KMODS=(
-    kmod-nft-tproxy
-    kmod-tun
-    kmod-nft-fullcone
-    kmod-nft-bridge
-    kmod-tcp-bbr
-    kmod-netlink-diag
-    kmod-inet-diag
-    kmod-tls
-)
-for package in "${REQUIRED_KMODS[@]}"; do
-    grep -qx "CONFIG_PACKAGE_${package}=y" .config || {
-        echo "错误：必需内核模块 ${package} 在 make defconfig 后未被选中。" >&2
-        exit 1
-    }
-done
-echo "检查通过：8 个指定网络与内核功能模块均已选中。"
+# Validate every explicitly selected kernel module after Kconfig dependency resolution.
+# This covers the complete retained upstream kmod selection, not just a short hard-coded list.
+REQUIRED_KMODS=()
+while IFS= read -r package; do
+    [[ -n "$package" ]] && REQUIRED_KMODS+=("$package")
+done < <(sed -n 's/^CONFIG_PACKAGE_\\(kmod-[^=]*\\)=y$/\\1/p' .config | sort -u)
+
+if [[ ${#REQUIRED_KMODS[@]} -eq 0 ]]; then
+    echo "错误：配置中没有选中任何内核模块，拒绝继续构建。" >&2
+    exit 1
+fi
+echo "已检测到 ${#REQUIRED_KMODS[@]} 个显式选择的内核模块，开始验证..."
+
 
 if [[ "$BUILD_MOD" == "debug" ]]; then
     echo "调试模式：配置准备完成，按要求跳过实际编译。"
@@ -124,19 +119,25 @@ find "$TARGET_DIR" -type f \( \
 
 rm -f "$FIRMWARE_DIR/Packages.manifest"
 
-# Verify the final firmware manifest, not just the requested Kconfig selections.
+# Verify every explicitly selected kmod in the final image manifest.
 MANIFEST_FILE="$(find "$FIRMWARE_DIR" -maxdepth 1 -type f -name '*.manifest' -print -quit)"
 if [[ -z "$MANIFEST_FILE" ]]; then
-    echo "错误：未生成固件软件包清单，无法验证 OpenClash 依赖模块。" >&2
+    echo "错误：未生成固件软件包清单，无法验证内核模块。" >&2
     exit 1
 fi
+MISSING_KMODS=()
 for package in "${REQUIRED_KMODS[@]}"; do
     if ! awk -v package="$package" '$1 == package { found=1 } END { exit !found }' "$MANIFEST_FILE"; then
-        echo "错误：最终固件软件包清单缺少指定内核模块：$package" >&2
-        exit 1
+        MISSING_KMODS+=("$package")
     fi
 done
-echo "检查通过：最终固件清单包含全部 8 个指定内核模块。"
+if [[ ${#MISSING_KMODS[@]} -gt 0 ]]; then
+    printf '错误：最终固件缺少以下已选择内核模块：\\n' >&2
+    printf '  - %s\\n' "${MISSING_KMODS[@]}" >&2
+    exit 1
+fi
+echo "检查通过：最终固件清单包含全部 ${#REQUIRED_KMODS[@]} 个显式选择的内核模块。"
+
 if ! find "$FIRMWARE_DIR" -maxdepth 1 -type f | grep -q .; then
     echo "错误：编译流程结束，但未收集到任何固件产物。" >&2
     exit 1
