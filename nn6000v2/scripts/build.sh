@@ -100,11 +100,11 @@ fi
 
 make download -j"$(($(nproc) * 2))"
 if ! make -j"$(($(nproc) + 1))"; then
-    echo "Parallel build failed; retrying serial verbose build..." >&2
+    echo "并行编译失败，正在改用单线程详细模式重试..." >&2
     make -j1 V=s
 fi
 
-[[ -d "$TARGET_DIR" ]] || { echo "Target output directory missing: $TARGET_DIR" >&2; exit 1; }
+[[ -d "$TARGET_DIR" ]] || { echo "错误：找不到目标固件输出目录：$TARGET_DIR" >&2; exit 1; }
 
 find "$TARGET_DIR" -type f \( \
     -name '*.bin' -o -name '*.manifest' -o -name '*efi.img.gz' \
