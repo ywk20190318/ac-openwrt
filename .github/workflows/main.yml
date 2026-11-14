@@ -1,4 +1,4 @@
-name: NN6000V2 Practical Minimal + QuickFile Build
+name: NN6000V2 Minimal + OpenClash + QuickFile + Diskman Build
 
 on:
   workflow_dispatch:
@@ -211,6 +211,8 @@ jobs:
             echo "- Web 管理：仅使用 Nginx，uHTTPd 及其模块不打包"
             echo "- LuCI：原版 LuCI + Argon + 简体中文"
             echo "- 文件管理：QuickFile（Rust 后端）+ Nginx HTTP 反向代理"
+            echo "- 代理管理：预装 OpenClash（Firewall4/nftables 环境）"
+            echo "- 分区管理：预装 LuCI Diskman、parted 及磁盘管理依赖"
             echo "- 外接存储：USB/UAS、ext4、VFAT、exFAT、NTFS3、F2FS、XFS"
             echo "- 防火墙：firewall4 + nftables，默认启用 FullCone NAT（全局及所有启用 masquerade 的区域）"
             echo "- 无线：2.4GHz / 5GHz，默认 SSID 为 500/5，密码为 88888888"
@@ -218,8 +220,8 @@ jobs:
             echo "- NSS、无线和设备板级驱动：保留"
             echo
             echo "## 精简策略"
-            echo "- 保留 QuickFile、Nginx/uWSGI、Argon、磁盘管理基础工具和所选网络/存储内核模块"
-            echo "- 不预装 Docker、Dockerman、Podman、OpenClash、QuickStart、易有云及无关第三方应用"
+            echo "- 预装 OpenClash、QuickFile、LuCI Diskman、Nginx/uWSGI、Argon 和必要磁盘管理工具"
+            echo "- 不预装 Docker、Dockerman、Podman、Passwall、AdGuardHome、SmartDNS、Tailscale、ZeroTier、QuickStart、易有云及其他无关应用"
             echo
             echo "注意：FullCone 只控制本机 NAT 行为，不能保证运营商 CGNAT、光猫或上级网络策略下实际获得 NAT1；最终软件包以本次 manifest 为准。"
           } > release_body.txt
