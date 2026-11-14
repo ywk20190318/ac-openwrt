@@ -20,23 +20,23 @@ Subject: [PATCH] firewall4: expose independent IPv4 and IPv6 SONiC Fullcone swit
 --- a/root/usr/share/ucode/fw4.uc
 +++ b/root/usr/share/ucode/fw4.uc
 @@ -1974,1 +1974,2 @@
-+\t\t\tfullcone6: [ "bool", "0" ],
- \t\t\tinput: [ "policy", "drop" ],
++			fullcone6: [ "bool", "0" ],
+ 			input: [ "policy", "drop" ],
 @@ -2008,4 +2009,5 @@
--\t\tif (defs.fullcone) {
-+\t\tif (defs.fullcone || defs.fullcone6) {
- \t\t\tif (!nft_try_fullcone()) {
- \t\t\t\tdelete defs.fullcone;
-+\t\t\t\tdelete defs.fullcone6;
--\t\t\t\twarn("fullcone expression not available, disabling fullcone globally\\n");
-+\t\t\t\twarn("fullcone expression not available, disabling IPv4 and IPv6 fullcone globally\\n");
+-		if (defs.fullcone) {
++		if (defs.fullcone || defs.fullcone6) {
+ 			if (!nft_try_fullcone()) {
+ 				delete defs.fullcone;
++				delete defs.fullcone6;
+-				warn("fullcone expression not available, disabling fullcone globally\n");
++				warn("fullcone expression not available, disabling IPv4 and IPv6 fullcone globally\n");
 @@ -2041,1 +2043,2 @@
-+\t\t\tfullcone6: [ "bool" ],
++			fullcone6: [ "bool" ],
  
 @@ -2072,2 +2075,3 @@
- \t\tzone.fullcone = !!(this.state.defaults.fullcone && zone.fullcone);
-+\t\tzone.fullcone6 = !!(this.state.defaults.fullcone6 && zone.fullcone6);
+ 		zone.fullcone = !!(this.state.defaults.fullcone && zone.fullcone);
++		zone.fullcone6 = !!(this.state.defaults.fullcone6 && zone.fullcone6);
  
 @@ -2252,1 +2256,1 @@
--\t\t\tif (zone.fullcone)
-+\t\t\tif (zone.fullcone6)
+-			if (zone.fullcone)
++			if (zone.fullcone6)
