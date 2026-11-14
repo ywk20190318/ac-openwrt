@@ -70,6 +70,15 @@ grep -qx 'CONFIG_LUCI_LANG_zh_Hans=y' .config || {
 }
 echo "Verified: APK package manager + LuCI Simplified Chinese language selection."
 
+# OpenClash needs both modules; fail during config validation if Kconfig drops either.
+for package in kmod-nft-tproxy kmod-tun; do
+    grep -qx "CONFIG_PACKAGE_${package}=y" .config || {
+        echo "ERROR: ${package} is required for OpenClash but was not selected after make defconfig." >&2
+        exit 1
+    }
+done
+echo "Verified: OpenClash nftables TProxy + TUN kernel modules selected."
+
 if [[ "$BUILD_MOD" == "debug" ]]; then
     echo "Debug mode: configuration prepared; build skipped."
     exit 0
