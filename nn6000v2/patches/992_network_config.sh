@@ -35,10 +35,6 @@ configure_wifi() {
 	local ssid=$6
 	local key=$7
 	local encryption=${8:-"psk2+ccmp"}
-	local now_encryption=$(uci get wireless.default_radio${radio}.encryption 2>/dev/null)
-	if [ -n "$now_encryption" ] && [ "$now_encryption" != "none" ]; then
-		return 0
-	fi
 	uci -q batch <<EOF
 set wireless.radio${radio}.band="${band}"
 set wireless.radio${radio}.channel="${channel}"
