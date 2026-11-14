@@ -50,6 +50,12 @@ fix_default_set() {
             "$defaults_dir/995_set_apk_mirror"
     fi
 
+    # Enable nftables FullCone NAT globally and on every masquerading zone.
+    if [[ -f "$BASE_PATH/patches/996_enable_fullcone_nat" ]]; then
+        install -Dm755 "$BASE_PATH/patches/996_enable_fullcone_nat" \
+            "$defaults_dir/996_enable_fullcone_nat"
+    fi
+
     if [[ -f "$BASE_PATH/patches/993_set_pppoe.sh" ]]; then
         install -Dm755 "$BASE_PATH/patches/993_set_pppoe.sh" \
             "$defaults_dir/993_set_pppoe.sh"
