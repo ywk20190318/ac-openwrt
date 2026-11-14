@@ -8,6 +8,11 @@ update_feeds() {
 
     sed -i '/^src-link/d' "$FEEDS_PATH"
 
+    # The video feed is desktop/graphics software and is not part of this router firmware.
+    # Excluding it prevents Qt/Wayland Kconfig recursion and irrelevant host dependencies.
+    sed -i -E '/^[[:space:]]*src-git[[:space:]]+video([[:space:]]|$)/d' "$FEEDS_PATH"
+    rm -rf "$BUILD_DIR/feeds/video"
+
     if ! grep -q "openwrt-packages" "$FEEDS_PATH"; then
         [ -z "$(tail -c 1 "$FEEDS_PATH")" ] || echo "" >>"$FEEDS_PATH"
         echo "src-git openwrt_packages https://github.com/kenzok8/openwrt-packages.git" >>"$FEEDS_PATH"
@@ -42,12 +47,19 @@ install_feeds() {
     for dir in "$BUILD_DIR"/feeds/*; do
         if [ -d "$dir" ] && [[ ! "$dir" == *.tmp ]] && [[ ! "$dir" == *.index ]] && [[ ! "$dir" == *.targetindex ]]; then
             local feed_name=$(basename "$dir")
-            if [[ "$feed_name" != "openwrt_packages" ]]; then
+            if [[ "$feed_name" != "openwrt_packages" && "$feed_name" != "video" ]]; then
                 ./scripts/feeds install -f -ap "$feed_name"
             fi
         fi
     done
     
+    # These unused feed packages contain known self-referential Kconfig choices.
+    # Remove their feed links so they cannot poison package metadata/defconfig.
+    find "$BUILD_DIR/package/feeds" -mindepth 2 -maxdepth 2 \\
+        \( -name "fwknop" -o -name "luci-app-fwknopd" -o -name "squeezelite" \) \\
+        -exec rm -rf {} +
+    echo "Removed unused fwknop and squeezelite packages with recursive Kconfig dependencies."
+
     echo "=== feeds 包安装完成 ==="
     cd - >/dev/null || exit 1
 }
