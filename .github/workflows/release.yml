@@ -107,14 +107,19 @@ jobs:
       - name: Validate custom build scripts and package exclusions
         run: |
           set -euo pipefail
-          for script in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do
-            bash -n "$script"
-          done
-          if grep -Eq '^CONFIG_PACKAGE_(luci-app-store|luci-app-istorex|taskd|luci-lib-taskd|luci-lib-xterm|luci-lib-ipkg)=y$' nn6000v2/configs/link_nn6000v2_immwrt.config; then
-            echo "iStore package or helper dependency is still selected."
+          for f in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do bash -n "$f"; done
+          if grep -Eiq 'passwall|smartdns|tailscale|zerotier|lucky|adguardhome|ghboost|openappfilter|istoreos' nn6000v2/scripts/{packages,update,feeds,system,docker}.sh; then
+            echo "Removed plugin integration remains in build scripts."
             exit 1
           fi
-          if grep -Eq '^CONFIG_PACKAGE_(luci-app-passwall|luci-app-smartdns|luci-app-tailscale-community|luci-app-zerotier|luci-app-sqm|luci-app-lucky|luci-app-adguardhome|luci-app-ghboost|luci-app-oaf|luci-app-store|luci-app-istorex|taskd|luci-lib-taskd|luci-lib-xterm|luci-lib-ipkg|kmod-nft-fullcone|kmod-nft-nat6)=y
+          if grep -Eq '^CONFIG_PACKAGE_(luci-app-store|luci-app-istorex|taskd|luci-lib-taskd|luci-lib-xterm|luci-lib-ipkg|kmod-nft-fullcone|kmod-nft-nat6)=y' nn6000v2/configs/link_nn6000v2_immwrt.config; then
+            echo "Removed or invalid package remains selected."
+            exit 1
+          fi
+          grep -q '^CONFIG_PACKAGE_kmod-nf-nat6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_kmod-nf-log6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_kmod-nf-reject6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
+          git diff --check
       - name: Restore Build Dependencies Cache
         uses: actions/cache/restore@v5.0.4
         with:
