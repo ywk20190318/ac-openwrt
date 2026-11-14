@@ -1,0 +1,40 @@
+name: NN6000V2 Preflight Only
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "nn6000v2/**"
+      - ".github/workflows/preflight.yml"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git
+  REPO_BRANCH: main
+  BUILD_DIR: action_build
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo bash -c 'bash <(curl -fsSL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+          sudo -E apt-get install -y dos2unix libfuse-dev
+
+      - name: Run configuration and patch preflight only
+        run: |
+          set -euo pipefail
+          chmod +x nn6000v2/scripts/*.sh
+          ./nn6000v2/scripts/build.sh link_nn6000v2_immwrt debug
