@@ -47,3 +47,50 @@ install_quickfile() {
 
     echo "✓ QuickFile 前端和 Rust 后端源码准备完成"
 }
+
+
+install_openclash() {
+    local repo_url="https://github.com/vernesong/OpenClash.git"
+    local commit="e553e82e01c697aefbe1555261a503f425e00ccd"
+    local target_dir="$BUILD_DIR/package/openclash"
+
+    echo "正在准备 OpenClash（固定上游提交：$commit）..."
+    mkdir -p "$BUILD_DIR/package"
+    rm -rf "$target_dir"
+    git clone --depth 1 "$repo_url" "$target_dir"
+    git -C "$target_dir" fetch --depth 1 origin "$commit"
+    git -C "$target_dir" checkout --detach "$commit"
+
+    [[ -f "$target_dir/luci-app-openclash/Makefile" ]] || {
+        echo "错误：OpenClash LuCI Makefile 不存在。" >&2
+        return 1
+    }
+    echo "✓ OpenClash 源码准备完成"
+}
+
+install_diskman() {
+    local repo_url="https://github.com/lisaac/luci-app-diskman.git"
+    local commit="c20df1d4f40d86e32fd919f33122b2a48f8a99b4"
+    local source_dir="$BUILD_DIR/tmp-diskman-source"
+    local app_dir="$BUILD_DIR/package/luci-app-diskman"
+    local parted_dir="$BUILD_DIR/package/parted"
+
+    echo "正在准备 LuCI Diskman 分区管理（固定上游提交：$commit）..."
+    rm -rf "$source_dir" "$app_dir"
+    git clone --depth 1 "$repo_url" "$source_dir"
+    git -C "$source_dir" fetch --depth 1 origin "$commit"
+    git -C "$source_dir" checkout --detach "$commit"
+
+    [[ -f "$source_dir/applications/luci-app-diskman/Makefile" ]] || {
+        echo "错误：Diskman LuCI Makefile 不存在。" >&2
+        return 1
+    }
+    [[ -f "$source_dir/Parted.Makefile" ]] || {
+        echo "错误：Diskman 配套 parted Makefile 不存在。" >&2
+        return 1
+    }
+
+    install -Dm644 "$source_dir/applications/luci-app-diskman/Makefile" "$app_dir/Makefile"
+    install -Dm644 "$source_dir/Parted.Makefile" "$parted_dir/Makefile"
+    echo "✓ Diskman 与 parted 源码准备完成"
+}
