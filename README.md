@@ -171,9 +171,9 @@ apk add 插件包名
 
 - 设备配置从参考仓库的 `link_nn6000v2_immwrt.config` 同步内核模块选择。
 - 另外保留参考仓库 `docker_deps.config` 中声明的内核模块；即使不预装 Docker，也按“保留全部模块”的要求保留这些选择。
-- 执行 `make defconfig`，由 OpenWrt/ImmortalWrt 的 Kconfig 解析依赖。
-- 构建脚本从最终 `.config` 自动收集所有 `CONFIG_PACKAGE_kmod-*=y` 项。
-- 编译完成后逐项检查固件 manifest；只要缺少任何一项显式选择的 kmod，构建即失败。
+- 执行 `make defconfig` 后，逐项核对设备配置中明确选择的 **122 项软件包** 是否全部保留，并检查 Link NN6000 V2 设备 profile、APK 和简体中文选项；发现 Kconfig 静默丢弃任何选项即提前终止，不进入长时间编译。
+- 构建脚本从最终 `.config` 自动收集所有 `CONFIG_PACKAGE_kmod-*=y` 项（当前 **75 项**）。
+- 编译完成后逐项检查固件 manifest；只要缺少任何一项显式选择的软件包或 kmod，构建即失败，同时检查 QuickStart/iStoreOS 商店包没有混入镜像。
 
 这项校验针对“配置中显式选择的 kmod”。上游 target 默认模块和依赖解析额外带入的模块，也会按源码构建系统处理，不在此处手工枚举。
 
