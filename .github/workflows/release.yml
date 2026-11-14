@@ -37,6 +37,7 @@ env:
   REPO_BRANCH: main
   BUILD_DIR: action_build
 
+# One-time final firmware build: run only after the main-branch preflight succeeds.
 jobs:
   build:
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_commit.message, '[FINAL-NN6000V2-BUILD]')) }}
