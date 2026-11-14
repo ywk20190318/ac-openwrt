@@ -129,6 +129,721 @@ verify_virtual_interface_packages() {
     echo "Docker, Dummy, GRE and NSS EoGRE packages are excluded."
 }
 
+verify_core_kernel_filesystems() {
+    local kernel_config
+    kernel_config=$(find "$BASE_PATH/../$BUILD_DIR/build_dir" -type f -path '*/linux-*/.config' -print -quit)
+
+    [ -n "$kernel_config" ] || {
+        echo "Kernel .config not found after target/linux/prepare." >&2
+        return 1
+    }
+
+    # OverlayFS and SquashFS are built into this upstream kernel, not separate kmod packages.
+    grep -q '^CONFIG_OVERLAY_FS=y
+    local kernel_config
+    kernel_config=$(find "$BASE_PATH/../$BUILD_DIR/build_dir" -type f -path '*/linux-*/.config' -print -quit)
+
+    if [ -z "$kernel_config" ]; then
+        echo "Kernel .config not found after target/linux/prepare." >&2
+        return 1
+    fi
+
+    if grep -Eq '^CONFIG_(DUMMY|NET_IPGRE|NET_IPGRE_DEMUX|IPV6_GRE)=(y|m)$' "$kernel_config"; then
+        echo "Dummy/GRE kernel support remains enabled:" >&2
+        grep -E '^CONFIG_(DUMMY|NET_IPGRE|NET_IPGRE_DEMUX|IPV6_GRE)=(y|m)$' "$kernel_config" >&2
+        return 1
+    fi
+
+    echo "Dummy and GRE kernel drivers are disabled."
+}
+
+verify_core_firmware_packages() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+
+    for package in \
+        kmod-ath kmod-ath11k kmod-ath11k-ahb \
+        ath11k-firmware-ipq6018-ddwrt ath11k-firmware-qcn9074-ddwrt \
+        luci-nginx nginx-ssl nginx-mod-luci nginx-mod-ubus uwsgi uwsgi-luci-support \
+        dnsmasq-full kmod-nft-core kmod-nft-nat kmod-nf-nat \
+        kmod-nf-conntrack kmod-nf-conntrack-netlink \
+        kmod-fs-f2fs kmod-fs-squashfs kmod-fs-overlay \
+        fullconenat-sonic luci-app-fullconenat-sonic; do
+        grep -q "^CONFIG_PACKAGE_${package}=y$" "$config_path" || {
+            echo "Required firmware package is missing after defconfig: ${package}" >&2
+            return 1
+        }
+    done
+
+    echo "NN6000V2 core firmware package set verified."
+}
+
+verify_no_docker_and_modular_packages() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+
+    if grep -Eiq '^CONFIG_PACKAGE_[^=]*(docker|dockerman)[^=]*=(y|m)$' "$config_path"; then
+        echo "Docker/Dockerman package is selected in firmware configuration." >&2
+        grep -Ei '^CONFIG_PACKAGE_[^=]*(docker|dockerman)[^=]*=(y|m)$' "$config_path" >&2
+        return 1
+    fi
+
+    for package in \
+        kmod-nft-offload kmod-nft-bridge kmod-nft-queue kmod-nft-netdev \
+        kmod-tcp-bbr kmod-veth kmod-bonding kmod-dsa \
+        kmod-fs-exfat kmod-fs-vfat kmod-fs-ext4 kmod-fs-ntfs3 kmod-fs-cifs kmod-fs-nfs \
+        kmod-netlink-diag kmod-inet-diag kmod-tls kmod-tun \
+        kmod-usb-acm kmod-usb-ehci kmod-usb-ohci kmod-usb-serial-qualcomm \
+        kmod-usb-serial-option kmod-usb-serial-wwan kmod-usb-storage \
+        kmod-usb-storage-extras kmod-usb-storage-uas kmod-usb2 kmod-usb3 \
+        kmod-usb-dwc3 kmod-usb-xhci-hcd kmod-usb-printer kmod-usb-net \
+        kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm kmod-usb-net-cdc-ether \
+        kmod-usb-net-qmi-wwan kmod-usb-net-cdc-mbim kmod-usb-net-rndis \
+        kmod-usb-net-rtl8150 kmod-usb-net-rtl8152 kmod-usb-net-asix \
+        kmod-usb-net-asix-ax88179 kmod-usb-net-cdc-eem kmod-usb-net-cdc-subset \
+        kmod-usb-net-ipheth kmod-usb-net-sierrawireless \
+        rng-tools blkid htop fuse-utils ntfs3-mount openssh-sftp-server \
+        tcpdump curl wget mtr socat iperf3 ethtool sgdisk openssl-util \
+        resize2fs qrencode smartmontools-drivedb usbutils xz-utils bash ipset \
+        kmod-wireguard wireguard-tools luci-proto-wireguard \
+        luci-proto-qmi luci-proto-mbim luci-proto-relay uqmi libqmi umbim libmbim usb-modeswitch \
+        luci-app-quickfile luci-app-mini-diskmanager luci-app-hd-idle \
+        luci-app-p910nd luci-theme-argon luci-app-argon-config; do
+        grep -q "^CONFIG_PACKAGE_${package}=m$" "$config_path" || {
+            echo "Optional package must be built as standalone APK: ${package}" >&2
+            return 1
+        }
+    done
+
+    echo "Docker exclusion and optional APK-only package checks passed."
+}
+
+verify_wifi_packages_config() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+    for package in kmod-ath kmod-ath11k kmod-ath11k-ahb ath11k-firmware-ipq6018-ddwrt ath11k-firmware-qcn9074-ddwrt; do
+        if ! grep -q "^CONFIG_PACKAGE_${package}=y$" "$config_path"; then
+            echo "Error: required Wi-Fi driver/firmware package is missing after defconfig: $package" >&2
+            return 1
+        fi
+    done
+    echo "Wi-Fi driver and firmware package checks passed."
+}
+
+verify_kernel_partition_size() {
+    local image_mk="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
+    [ -f "$image_mk" ] || { echo "Missing target image definition: $image_mk" >&2; return 1; }
+    sed -n '/link_nn6000-common/,/endef/p' "$image_mk" | grep -q 'KERNEL_SIZE := 12288k' || {
+        echo "Error: Link NN6000 kernel partition must be 12288k (12 MiB)." >&2
+        return 1
+    }
+    echo "Link NN6000 kernel partition verified: 12288k (12 MiB)."
+}
+
+verify_ipv6_packages_config() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+
+    grep -q '^CONFIG_IPV6=y$' "$config_path" || {
+        echo "IPv6 kernel protocol stack is not enabled." >&2
+        return 1
+    }
+
+    for package in kmod-nf-nat6 kmod-nf-log6 kmod-nf-reject6; do
+        grep -q "^CONFIG_PACKAGE_${package}=y$" "$config_path" || {
+            echo "Required IPv6 base package is missing: ${package}" >&2
+            return 1
+        }
+    done
+
+    for package in kmod-nf-ipt6 kmod-ip6tables kmod-ip6tables-extra kmod-ip6-tunnel kmod-sit kmod-fou kmod-fou6 kmod-ipsec6 kmod-ip6-vti kmod-xfrm-interface; do
+        grep -q "^CONFIG_PACKAGE_${package}=m$" "$config_path" || {
+            echo "Optional IPv6 APK package is missing or not modular: ${package}" >&2
+            return 1
+        }
+    done
+
+    echo "IPv6 base packages and optional ABI-matched APK modules verified."
+}
+
+preflight_sonic_fullcone() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local backend_dir="$BASE_PATH/../$BUILD_DIR/package/network/utils/fullconenat-sonic"
+    local luci_dir="$BASE_PATH/../$BUILD_DIR/package/emortal/luci-app-fullconenat-sonic"
+    local fw4_patch="$BASE_PATH/../$BUILD_DIR/package/network/config/firewall4/patches/004-independent-ipv6.patch"
+    local required
+
+    grep -q '^CONFIG_PACKAGE_fullconenat-sonic=y$' "$config_path" || {
+        echo "The upstream SONiC FullCone backend package is not selected." >&2
+        return 1
+    }
+    grep -q '^CONFIG_PACKAGE_luci-app-fullconenat-sonic=y$' "$config_path" || {
+        echo "The SONiC FullCone LuCI package is not selected." >&2
+        return 1
+    }
+    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y$' "$config_path" || {
+        echo "kmod-nft-nat is required by the SONiC FullCone backend." >&2
+        return 1
+    }
+
+    [ -s "$backend_dir/Makefile" ] || {
+        echo "Missing upstream SONiC backend package Makefile." >&2
+        return 1
+    }
+    grep -q 'CONFIG_NF_NAT_FULLCONE=y' "$backend_dir/Makefile" || {
+        echo "SONiC backend Makefile does not enable CONFIG_NF_NAT_FULLCONE." >&2
+        return 1
+    }
+    [ -s "$luci_dir/Makefile" ] || {
+        echo "Missing upstream SONiC LuCI package Makefile." >&2
+        return 1
+    }
+
+    for required in \
+        001-integrate-firewall-zones.patch \
+        002-disable-routing-nat-offload.patch; do
+        [ -s "$luci_dir/patches/$required" ] || {
+            echo "Missing upstream SONiC LuCI patch: $required" >&2
+            return 1
+        }
+    done
+    [ -s "$fw4_patch" ] && grep -q 'fullcone6' "$fw4_patch" || {
+        echo "Independent IPv6 FullCone firewall4 patch is missing or incomplete." >&2
+        return 1
+    }
+    [ -s "$BASE_PATH/patches/fullcone/luci-app-fullconenat-sonic/fullconenat-sonic.js" ] || {
+        echo "Independent IPv4/IPv6 LuCI controller is missing." >&2
+        return 1
+    }
+
+    grep -Fq 'if (defs.fullcone || defs.fullcone6)' "$fw4_patch" || {
+        echo "FullCone capability probing must cover both IPv4 and IPv6." >&2
+        return 1
+    }
+    grep -Fq 'tools.fullconenat-sonic' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI firewall page does not load the independent FullCone controls." >&2
+        return 1
+    }
+    grep -Fq 'fullcone.addGlobal(s)' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI global IPv4/IPv6 FullCone controls are not integrated." >&2
+        return 1
+    }
+    grep -Fq 'fullcone.addZone(s)' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI per-zone IPv4/IPv6 FullCone controls are not integrated." >&2
+        return 1
+    }
+
+    if grep -Eq '^CONFIG_PACKAGE_kmod-(nft-fullcone|nft-nat6)=y$' "$config_path"; then
+        echo "Obsolete standalone FullCone kmod remains selected." >&2
+        return 1
+    fi
+
+    echo "Upstream SONiC FullCone backend and independent IPv4/IPv6 LuCI preflight passed."
+}
+apply_config() {
+    \cp -f "$CONFIG_FILE" "$BASE_PATH/../$BUILD_DIR/.config"
+
+    # No Docker dependency overlay is applied to this firmware.
+}
+
+fix_netfilter_kmod_clash() {
+    local include_netfilter_mk="$BASE_PATH/../$BUILD_DIR/include/netfilter.mk"
+    local netfilter_mk="$BASE_PATH/../$BUILD_DIR/package/kernel/linux/modules/netfilter.mk"
+
+    if [ ! -f "$include_netfilter_mk" ]; then
+        echo "Netfilter include file not found: $include_netfilter_mk" >&2
+        return 1
+    fi
+
+    if [ ! -f "$netfilter_mk" ]; then
+        echo "Netfilter makefile not found: $netfilter_mk" >&2
+        return 1
+    fi
+
+    if grep -q 'CONFIG_IP_NF_IPTABLES_LEGACY, $(P_V4)ip_tables, ge 6.12' "$include_netfilter_mk" && \
+       grep -q 'CONFIG_IP6_NF_IPTABLES_LEGACY, $(P_V6)ip6_tables, ge 6.12' "$include_netfilter_mk" && \
+       grep -q 'DEPENDS:=+(!(LINUX_6_12||LINUX_6_18)):kmod-iptables' "$netfilter_mk"; then
+        echo "Netfilter kmod clash workaround already applied"
+        return 0
+    fi
+
+    if grep -q '$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT,CONFIG_IP_NF_IPTABLES, $(P_V4)ip_tables),))' "$include_netfilter_mk"; then
+        echo "Updating NF_IPT mapping for Linux 6.12/6.18..."
+        sed -i 's@$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT,CONFIG_IP_NF_IPTABLES, $(P_V4)ip_tables),))@$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT,CONFIG_IP_NF_IPTABLES, $(P_V4)ip_tables, lt 6.12),))@' "$include_netfilter_mk"
+        sed -i '/CONFIG_IP_NF_IPTABLES, $(P_V4)ip_tables, lt 6\.12)/a$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT,CONFIG_IP_NF_IPTABLES_LEGACY, $(P_V4)ip_tables, ge 6.12),))' "$include_netfilter_mk"
+    fi
+
+    if grep -q '$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_CORE,CONFIG_IP_NF_IPTABLES, xt_standard ipt_icmp xt_tcp xt_udp xt_comment xt_set xt_SET)))' "$include_netfilter_mk"; then
+        echo "Updating IPT_CORE userland mapping for Linux 6.12/6.18..."
+        sed -i 's@$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_CORE,CONFIG_IP_NF_IPTABLES, xt_standard ipt_icmp xt_tcp xt_udp xt_comment xt_set xt_SET)))@$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_CORE,CONFIG_IP_NF_IPTABLES, xt_standard ipt_icmp xt_tcp xt_udp xt_comment xt_set xt_SET, lt 6.12)))@' "$include_netfilter_mk"
+        sed -i '/CONFIG_IP_NF_IPTABLES, xt_standard ipt_icmp xt_tcp xt_udp xt_comment xt_set xt_SET, lt 6\.12))/a$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_CORE,CONFIG_IP_NF_IPTABLES_LEGACY, xt_standard ipt_icmp xt_tcp xt_udp xt_comment xt_set xt_SET, ge 6.12)))' "$include_netfilter_mk"
+    fi
+
+    if grep -q '$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT6,CONFIG_IP6_NF_IPTABLES, $(P_V6)ip6_tables),))' "$include_netfilter_mk"; then
+        echo "Updating NF_IPT6 mapping for Linux 6.12/6.18..."
+        sed -i 's@$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT6,CONFIG_IP6_NF_IPTABLES, $(P_V6)ip6_tables),))@$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT6,CONFIG_IP6_NF_IPTABLES, $(P_V6)ip6_tables, lt 6.12),))@' "$include_netfilter_mk"
+        sed -i '/CONFIG_IP6_NF_IPTABLES, $(P_V6)ip6_tables, lt 6\.12)/a$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT6,CONFIG_IP6_NF_IPTABLES_LEGACY, $(P_V6)ip6_tables, ge 6.12),))' "$include_netfilter_mk"
+    fi
+
+    if grep -q '$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_IPV6,CONFIG_IP6_NF_IPTABLES, ip6t_icmp6)))' "$include_netfilter_mk"; then
+        echo "Updating IPT_IPV6 userland mapping for Linux 6.12/6.18..."
+        sed -i 's@$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_IPV6,CONFIG_IP6_NF_IPTABLES, ip6t_icmp6)))@$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_IPV6,CONFIG_IP6_NF_IPTABLES, ip6t_icmp6, lt 6.12)))@' "$include_netfilter_mk"
+        sed -i '/CONFIG_IP6_NF_IPTABLES, ip6t_icmp6, lt 6\.12))/a$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_IPV6,CONFIG_IP6_NF_IPTABLES_LEGACY, ip6t_icmp6, ge 6.12)))' "$include_netfilter_mk"
+    fi
+
+    if grep -q 'DEPENDS:=+!LINUX_6_12:kmod-iptables' "$netfilter_mk"; then
+        echo "Applying netfilter kmod clash workaround for Linux 6.12/6.18..."
+        sed -i 's/DEPENDS:=+!LINUX_6_12:kmod-iptables/DEPENDS:=+(!(LINUX_6_12||LINUX_6_18)):kmod-iptables/' "$netfilter_mk"
+        return 0
+    fi
+
+    echo "Netfilter kmod clash workaround applied successfully"
+}
+
+if [[ -d action_build ]]; then
+    BUILD_DIR="action_build"
+fi
+
+"$BASE_PATH/scripts/update.sh" "$REPO_URL" "$REPO_BRANCH" "$BUILD_DIR" "$COMMIT_HASH"
+
+remove_virtual_network_device_defaults
+
+apply_config
+fix_netfilter_kmod_clash
+configure_nginx_webserver
+
+# Modify kernel size to 12MB for ipq60xx devices
+modify_kernel_size() {
+    local ipq60xx_mk_path="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
+    
+    if [ -f "$ipq60xx_mk_path" ]; then
+        # Change KERNEL_SIZE from 6144k to 12288k for link_nn6000 devices
+        if ! sed -n '/link_nn6000-common/,/endef/p' "$ipq60xx_mk_path" | grep -q 'KERNEL_SIZE := 12288k'; then
+            sed -i '/link_nn6000-common/,/endef/{s/KERNEL_SIZE := 6144k/KERNEL_SIZE := 12288k/g}' "$ipq60xx_mk_path"
+        fi
+        if ! sed -n '/link_nn6000-common/,/endef/p' "$ipq60xx_mk_path" | grep -q 'KERNEL_SIZE := 12288k'; then
+            echo "Error: failed to set Link NN6000 kernel size to 12288k." >&2
+            return 1
+        fi
+        echo "Verified KERNEL_SIZE=12288k (12 MiB) for link_nn6000 devices"
+    fi
+}
+
+modify_kernel_size
+
+cd "$BASE_PATH/../$BUILD_DIR"
+make defconfig
+verify_nginx_webserver_config
+verify_wifi_packages_config
+verify_core_firmware_packages
+verify_no_docker_and_modular_packages
+verify_virtual_interface_packages
+verify_ipv6_packages_config
+verify_kernel_partition_size
+preflight_sonic_fullcone
+
+# Validate all selected patch series before starting the full build.
+make target/linux/prepare
+verify_core_kernel_filesystems
+verify_virtual_interface_kernel_config
+make package/libs/libnftnl/prepare
+make package/network/utils/nftables/prepare
+make package/network/config/firewall4/prepare
+make package/network/utils/fullconenat-sonic/prepare
+make package/emortal/luci-app-fullconenat-sonic/prepare
+
+if [[ $Build_Mod == "debug" ]]; then
+    exit 0
+fi
+
+TARGET_DIR="$BASE_PATH/../$BUILD_DIR/bin/targets"
+if [[ -d $TARGET_DIR ]]; then
+    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec rm -f {} +
+fi
+
+make download -j$(($(nproc) * 2))
+make -j$(($(nproc) + 1)) || make -j1 V=s
+
+# Verify the actual built image manifests contain none of the unwanted virtual-device providers.
+while IFS= read -r manifest; do
+    if grep -Eiq '^(docker|dockerd|luci-app-dockerman|luci-lib-docker|kmod-dummy|kmod-gre|kmod-gre6|kmod-qca-nss-drv-gre|kmod-qca-nss-drv-eogremgr)[[:space:]]' "$manifest"; then
+        echo "Forbidden Docker/Dummy/GRE package found in image manifest: $manifest" >&2
+        grep -Ein '^(docker|dockerd|luci-app-dockerman|luci-lib-docker|kmod-dummy|kmod-gre|kmod-gre6|kmod-qca-nss-drv-gre|kmod-qca-nss-drv-eogremgr)[[:space:]]' "$manifest" >&2
+        exit 1
+    fi
+done < <(find "$TARGET_DIR" -type f -name '*.manifest' -print)
+
+# Publish only the Wi-Fi-enabled build.
+FIRMWARE_DIR="$BASE_PATH/../firmware"
+\rm -rf "$FIRMWARE_DIR"
+mkdir -p "$FIRMWARE_DIR"
+find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
+
+if find "$FIRMWARE_DIR" -maxdepth 1 -type f -iname '*nowifi*' | grep -q .; then
+    echo "Error: NoWiFi artifact detected in firmware output." >&2
+    exit 1
+fi
+
+echo "Wi-Fi-enabled firmware copied to: $FIRMWARE_DIR"
+
+ "$kernel_config" || {
+        echo "OverlayFS is not built into the kernel." >&2
+        return 1
+    }
+    grep -q '^CONFIG_SQUASHFS=y
+    local kernel_config
+    kernel_config=$(find "$BASE_PATH/../$BUILD_DIR/build_dir" -type f -path '*/linux-*/.config' -print -quit)
+
+    if [ -z "$kernel_config" ]; then
+        echo "Kernel .config not found after target/linux/prepare." >&2
+        return 1
+    fi
+
+    if grep -Eq '^CONFIG_(DUMMY|NET_IPGRE|NET_IPGRE_DEMUX|IPV6_GRE)=(y|m)$' "$kernel_config"; then
+        echo "Dummy/GRE kernel support remains enabled:" >&2
+        grep -E '^CONFIG_(DUMMY|NET_IPGRE|NET_IPGRE_DEMUX|IPV6_GRE)=(y|m)$' "$kernel_config" >&2
+        return 1
+    fi
+
+    echo "Dummy and GRE kernel drivers are disabled."
+}
+
+verify_core_firmware_packages() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+
+    for package in \
+        kmod-ath kmod-ath11k kmod-ath11k-ahb \
+        ath11k-firmware-ipq6018-ddwrt ath11k-firmware-qcn9074-ddwrt \
+        luci-nginx nginx-ssl nginx-mod-luci nginx-mod-ubus uwsgi uwsgi-luci-support \
+        dnsmasq-full kmod-nft-core kmod-nft-nat kmod-nf-nat \
+        kmod-nf-conntrack kmod-nf-conntrack-netlink \
+        kmod-fs-f2fs kmod-fs-squashfs kmod-fs-overlay \
+        fullconenat-sonic luci-app-fullconenat-sonic; do
+        grep -q "^CONFIG_PACKAGE_${package}=y$" "$config_path" || {
+            echo "Required firmware package is missing after defconfig: ${package}" >&2
+            return 1
+        }
+    done
+
+    echo "NN6000V2 core firmware package set verified."
+}
+
+verify_no_docker_and_modular_packages() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+
+    if grep -Eiq '^CONFIG_PACKAGE_[^=]*(docker|dockerman)[^=]*=(y|m)$' "$config_path"; then
+        echo "Docker/Dockerman package is selected in firmware configuration." >&2
+        grep -Ei '^CONFIG_PACKAGE_[^=]*(docker|dockerman)[^=]*=(y|m)$' "$config_path" >&2
+        return 1
+    fi
+
+    for package in \
+        kmod-nft-offload kmod-nft-bridge kmod-nft-queue kmod-nft-netdev \
+        kmod-tcp-bbr kmod-veth kmod-bonding kmod-dsa \
+        kmod-fs-exfat kmod-fs-vfat kmod-fs-ext4 kmod-fs-ntfs3 kmod-fs-cifs kmod-fs-nfs \
+        kmod-netlink-diag kmod-inet-diag kmod-tls kmod-tun \
+        kmod-usb-acm kmod-usb-ehci kmod-usb-ohci kmod-usb-serial-qualcomm \
+        kmod-usb-serial-option kmod-usb-serial-wwan kmod-usb-storage \
+        kmod-usb-storage-extras kmod-usb-storage-uas kmod-usb2 kmod-usb3 \
+        kmod-usb-dwc3 kmod-usb-xhci-hcd kmod-usb-printer kmod-usb-net \
+        kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm kmod-usb-net-cdc-ether \
+        kmod-usb-net-qmi-wwan kmod-usb-net-cdc-mbim kmod-usb-net-rndis \
+        kmod-usb-net-rtl8150 kmod-usb-net-rtl8152 kmod-usb-net-asix \
+        kmod-usb-net-asix-ax88179 kmod-usb-net-cdc-eem kmod-usb-net-cdc-subset \
+        kmod-usb-net-ipheth kmod-usb-net-sierrawireless \
+        rng-tools blkid htop fuse-utils ntfs3-mount openssh-sftp-server \
+        tcpdump curl wget mtr socat iperf3 ethtool sgdisk openssl-util \
+        resize2fs qrencode smartmontools-drivedb usbutils xz-utils bash ipset \
+        kmod-wireguard wireguard-tools luci-proto-wireguard \
+        luci-proto-qmi luci-proto-mbim luci-proto-relay uqmi libqmi umbim libmbim usb-modeswitch \
+        luci-app-quickfile luci-app-mini-diskmanager luci-app-hd-idle \
+        luci-app-p910nd luci-theme-argon luci-app-argon-config; do
+        grep -q "^CONFIG_PACKAGE_${package}=m$" "$config_path" || {
+            echo "Optional package must be built as standalone APK: ${package}" >&2
+            return 1
+        }
+    done
+
+    echo "Docker exclusion and optional APK-only package checks passed."
+}
+
+verify_wifi_packages_config() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+    for package in kmod-ath kmod-ath11k kmod-ath11k-ahb ath11k-firmware-ipq6018-ddwrt ath11k-firmware-qcn9074-ddwrt; do
+        if ! grep -q "^CONFIG_PACKAGE_${package}=y$" "$config_path"; then
+            echo "Error: required Wi-Fi driver/firmware package is missing after defconfig: $package" >&2
+            return 1
+        fi
+    done
+    echo "Wi-Fi driver and firmware package checks passed."
+}
+
+verify_kernel_partition_size() {
+    local image_mk="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
+    [ -f "$image_mk" ] || { echo "Missing target image definition: $image_mk" >&2; return 1; }
+    sed -n '/link_nn6000-common/,/endef/p' "$image_mk" | grep -q 'KERNEL_SIZE := 12288k' || {
+        echo "Error: Link NN6000 kernel partition must be 12288k (12 MiB)." >&2
+        return 1
+    }
+    echo "Link NN6000 kernel partition verified: 12288k (12 MiB)."
+}
+
+verify_ipv6_packages_config() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+
+    grep -q '^CONFIG_IPV6=y$' "$config_path" || {
+        echo "IPv6 kernel protocol stack is not enabled." >&2
+        return 1
+    }
+
+    for package in kmod-nf-nat6 kmod-nf-log6 kmod-nf-reject6; do
+        grep -q "^CONFIG_PACKAGE_${package}=y$" "$config_path" || {
+            echo "Required IPv6 base package is missing: ${package}" >&2
+            return 1
+        }
+    done
+
+    for package in kmod-nf-ipt6 kmod-ip6tables kmod-ip6tables-extra kmod-ip6-tunnel kmod-sit kmod-fou kmod-fou6 kmod-ipsec6 kmod-ip6-vti kmod-xfrm-interface; do
+        grep -q "^CONFIG_PACKAGE_${package}=m$" "$config_path" || {
+            echo "Optional IPv6 APK package is missing or not modular: ${package}" >&2
+            return 1
+        }
+    done
+
+    echo "IPv6 base packages and optional ABI-matched APK modules verified."
+}
+
+preflight_sonic_fullcone() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local backend_dir="$BASE_PATH/../$BUILD_DIR/package/network/utils/fullconenat-sonic"
+    local luci_dir="$BASE_PATH/../$BUILD_DIR/package/emortal/luci-app-fullconenat-sonic"
+    local fw4_patch="$BASE_PATH/../$BUILD_DIR/package/network/config/firewall4/patches/004-independent-ipv6.patch"
+    local required
+
+    grep -q '^CONFIG_PACKAGE_fullconenat-sonic=y$' "$config_path" || {
+        echo "The upstream SONiC FullCone backend package is not selected." >&2
+        return 1
+    }
+    grep -q '^CONFIG_PACKAGE_luci-app-fullconenat-sonic=y$' "$config_path" || {
+        echo "The SONiC FullCone LuCI package is not selected." >&2
+        return 1
+    }
+    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y$' "$config_path" || {
+        echo "kmod-nft-nat is required by the SONiC FullCone backend." >&2
+        return 1
+    }
+
+    [ -s "$backend_dir/Makefile" ] || {
+        echo "Missing upstream SONiC backend package Makefile." >&2
+        return 1
+    }
+    grep -q 'CONFIG_NF_NAT_FULLCONE=y' "$backend_dir/Makefile" || {
+        echo "SONiC backend Makefile does not enable CONFIG_NF_NAT_FULLCONE." >&2
+        return 1
+    }
+    [ -s "$luci_dir/Makefile" ] || {
+        echo "Missing upstream SONiC LuCI package Makefile." >&2
+        return 1
+    }
+
+    for required in \
+        001-integrate-firewall-zones.patch \
+        002-disable-routing-nat-offload.patch; do
+        [ -s "$luci_dir/patches/$required" ] || {
+            echo "Missing upstream SONiC LuCI patch: $required" >&2
+            return 1
+        }
+    done
+    [ -s "$fw4_patch" ] && grep -q 'fullcone6' "$fw4_patch" || {
+        echo "Independent IPv6 FullCone firewall4 patch is missing or incomplete." >&2
+        return 1
+    }
+    [ -s "$BASE_PATH/patches/fullcone/luci-app-fullconenat-sonic/fullconenat-sonic.js" ] || {
+        echo "Independent IPv4/IPv6 LuCI controller is missing." >&2
+        return 1
+    }
+
+    grep -Fq 'if (defs.fullcone || defs.fullcone6)' "$fw4_patch" || {
+        echo "FullCone capability probing must cover both IPv4 and IPv6." >&2
+        return 1
+    }
+    grep -Fq 'tools.fullconenat-sonic' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI firewall page does not load the independent FullCone controls." >&2
+        return 1
+    }
+    grep -Fq 'fullcone.addGlobal(s)' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI global IPv4/IPv6 FullCone controls are not integrated." >&2
+        return 1
+    }
+    grep -Fq 'fullcone.addZone(s)' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI per-zone IPv4/IPv6 FullCone controls are not integrated." >&2
+        return 1
+    }
+
+    if grep -Eq '^CONFIG_PACKAGE_kmod-(nft-fullcone|nft-nat6)=y$' "$config_path"; then
+        echo "Obsolete standalone FullCone kmod remains selected." >&2
+        return 1
+    fi
+
+    echo "Upstream SONiC FullCone backend and independent IPv4/IPv6 LuCI preflight passed."
+}
+apply_config() {
+    \cp -f "$CONFIG_FILE" "$BASE_PATH/../$BUILD_DIR/.config"
+
+    # No Docker dependency overlay is applied to this firmware.
+}
+
+fix_netfilter_kmod_clash() {
+    local include_netfilter_mk="$BASE_PATH/../$BUILD_DIR/include/netfilter.mk"
+    local netfilter_mk="$BASE_PATH/../$BUILD_DIR/package/kernel/linux/modules/netfilter.mk"
+
+    if [ ! -f "$include_netfilter_mk" ]; then
+        echo "Netfilter include file not found: $include_netfilter_mk" >&2
+        return 1
+    fi
+
+    if [ ! -f "$netfilter_mk" ]; then
+        echo "Netfilter makefile not found: $netfilter_mk" >&2
+        return 1
+    fi
+
+    if grep -q 'CONFIG_IP_NF_IPTABLES_LEGACY, $(P_V4)ip_tables, ge 6.12' "$include_netfilter_mk" && \
+       grep -q 'CONFIG_IP6_NF_IPTABLES_LEGACY, $(P_V6)ip6_tables, ge 6.12' "$include_netfilter_mk" && \
+       grep -q 'DEPENDS:=+(!(LINUX_6_12||LINUX_6_18)):kmod-iptables' "$netfilter_mk"; then
+        echo "Netfilter kmod clash workaround already applied"
+        return 0
+    fi
+
+    if grep -q '$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT,CONFIG_IP_NF_IPTABLES, $(P_V4)ip_tables),))' "$include_netfilter_mk"; then
+        echo "Updating NF_IPT mapping for Linux 6.12/6.18..."
+        sed -i 's@$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT,CONFIG_IP_NF_IPTABLES, $(P_V4)ip_tables),))@$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT,CONFIG_IP_NF_IPTABLES, $(P_V4)ip_tables, lt 6.12),))@' "$include_netfilter_mk"
+        sed -i '/CONFIG_IP_NF_IPTABLES, $(P_V4)ip_tables, lt 6\.12)/a$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT,CONFIG_IP_NF_IPTABLES_LEGACY, $(P_V4)ip_tables, ge 6.12),))' "$include_netfilter_mk"
+    fi
+
+    if grep -q '$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_CORE,CONFIG_IP_NF_IPTABLES, xt_standard ipt_icmp xt_tcp xt_udp xt_comment xt_set xt_SET)))' "$include_netfilter_mk"; then
+        echo "Updating IPT_CORE userland mapping for Linux 6.12/6.18..."
+        sed -i 's@$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_CORE,CONFIG_IP_NF_IPTABLES, xt_standard ipt_icmp xt_tcp xt_udp xt_comment xt_set xt_SET)))@$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_CORE,CONFIG_IP_NF_IPTABLES, xt_standard ipt_icmp xt_tcp xt_udp xt_comment xt_set xt_SET, lt 6.12)))@' "$include_netfilter_mk"
+        sed -i '/CONFIG_IP_NF_IPTABLES, xt_standard ipt_icmp xt_tcp xt_udp xt_comment xt_set xt_SET, lt 6\.12))/a$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_CORE,CONFIG_IP_NF_IPTABLES_LEGACY, xt_standard ipt_icmp xt_tcp xt_udp xt_comment xt_set xt_SET, ge 6.12)))' "$include_netfilter_mk"
+    fi
+
+    if grep -q '$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT6,CONFIG_IP6_NF_IPTABLES, $(P_V6)ip6_tables),))' "$include_netfilter_mk"; then
+        echo "Updating NF_IPT6 mapping for Linux 6.12/6.18..."
+        sed -i 's@$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT6,CONFIG_IP6_NF_IPTABLES, $(P_V6)ip6_tables),))@$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT6,CONFIG_IP6_NF_IPTABLES, $(P_V6)ip6_tables, lt 6.12),))@' "$include_netfilter_mk"
+        sed -i '/CONFIG_IP6_NF_IPTABLES, $(P_V6)ip6_tables, lt 6\.12)/a$(eval $(if $(NF_KMOD),$(call nf_add,NF_IPT6,CONFIG_IP6_NF_IPTABLES_LEGACY, $(P_V6)ip6_tables, ge 6.12),))' "$include_netfilter_mk"
+    fi
+
+    if grep -q '$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_IPV6,CONFIG_IP6_NF_IPTABLES, ip6t_icmp6)))' "$include_netfilter_mk"; then
+        echo "Updating IPT_IPV6 userland mapping for Linux 6.12/6.18..."
+        sed -i 's@$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_IPV6,CONFIG_IP6_NF_IPTABLES, ip6t_icmp6)))@$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_IPV6,CONFIG_IP6_NF_IPTABLES, ip6t_icmp6, lt 6.12)))@' "$include_netfilter_mk"
+        sed -i '/CONFIG_IP6_NF_IPTABLES, ip6t_icmp6, lt 6\.12))/a$(eval $(if $(NF_KMOD),,$(call nf_add,IPT_IPV6,CONFIG_IP6_NF_IPTABLES_LEGACY, ip6t_icmp6, ge 6.12)))' "$include_netfilter_mk"
+    fi
+
+    if grep -q 'DEPENDS:=+!LINUX_6_12:kmod-iptables' "$netfilter_mk"; then
+        echo "Applying netfilter kmod clash workaround for Linux 6.12/6.18..."
+        sed -i 's/DEPENDS:=+!LINUX_6_12:kmod-iptables/DEPENDS:=+(!(LINUX_6_12||LINUX_6_18)):kmod-iptables/' "$netfilter_mk"
+        return 0
+    fi
+
+    echo "Netfilter kmod clash workaround applied successfully"
+}
+
+if [[ -d action_build ]]; then
+    BUILD_DIR="action_build"
+fi
+
+"$BASE_PATH/scripts/update.sh" "$REPO_URL" "$REPO_BRANCH" "$BUILD_DIR" "$COMMIT_HASH"
+
+remove_virtual_network_device_defaults
+
+apply_config
+fix_netfilter_kmod_clash
+configure_nginx_webserver
+
+# Modify kernel size to 12MB for ipq60xx devices
+modify_kernel_size() {
+    local ipq60xx_mk_path="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
+    
+    if [ -f "$ipq60xx_mk_path" ]; then
+        # Change KERNEL_SIZE from 6144k to 12288k for link_nn6000 devices
+        if ! sed -n '/link_nn6000-common/,/endef/p' "$ipq60xx_mk_path" | grep -q 'KERNEL_SIZE := 12288k'; then
+            sed -i '/link_nn6000-common/,/endef/{s/KERNEL_SIZE := 6144k/KERNEL_SIZE := 12288k/g}' "$ipq60xx_mk_path"
+        fi
+        if ! sed -n '/link_nn6000-common/,/endef/p' "$ipq60xx_mk_path" | grep -q 'KERNEL_SIZE := 12288k'; then
+            echo "Error: failed to set Link NN6000 kernel size to 12288k." >&2
+            return 1
+        fi
+        echo "Verified KERNEL_SIZE=12288k (12 MiB) for link_nn6000 devices"
+    fi
+}
+
+modify_kernel_size
+
+cd "$BASE_PATH/../$BUILD_DIR"
+make defconfig
+verify_nginx_webserver_config
+verify_wifi_packages_config
+verify_core_firmware_packages
+verify_no_docker_and_modular_packages
+verify_virtual_interface_packages
+verify_ipv6_packages_config
+verify_kernel_partition_size
+preflight_sonic_fullcone
+
+# Validate all selected patch series before starting the full build.
+make target/linux/prepare
+verify_virtual_interface_kernel_config
+make package/libs/libnftnl/prepare
+make package/network/utils/nftables/prepare
+make package/network/config/firewall4/prepare
+make package/network/utils/fullconenat-sonic/prepare
+make package/emortal/luci-app-fullconenat-sonic/prepare
+
+if [[ $Build_Mod == "debug" ]]; then
+    exit 0
+fi
+
+TARGET_DIR="$BASE_PATH/../$BUILD_DIR/bin/targets"
+if [[ -d $TARGET_DIR ]]; then
+    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec rm -f {} +
+fi
+
+make download -j$(($(nproc) * 2))
+make -j$(($(nproc) + 1)) || make -j1 V=s
+
+# Verify the actual built image manifests contain none of the unwanted virtual-device providers.
+while IFS= read -r manifest; do
+    if grep -Eiq '^(docker|dockerd|luci-app-dockerman|luci-lib-docker|kmod-dummy|kmod-gre|kmod-gre6|kmod-qca-nss-drv-gre|kmod-qca-nss-drv-eogremgr)[[:space:]]' "$manifest"; then
+        echo "Forbidden Docker/Dummy/GRE package found in image manifest: $manifest" >&2
+        grep -Ein '^(docker|dockerd|luci-app-dockerman|luci-lib-docker|kmod-dummy|kmod-gre|kmod-gre6|kmod-qca-nss-drv-gre|kmod-qca-nss-drv-eogremgr)[[:space:]]' "$manifest" >&2
+        exit 1
+    fi
+done < <(find "$TARGET_DIR" -type f -name '*.manifest' -print)
+
+# Publish only the Wi-Fi-enabled build.
+FIRMWARE_DIR="$BASE_PATH/../firmware"
+\rm -rf "$FIRMWARE_DIR"
+mkdir -p "$FIRMWARE_DIR"
+find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
+
+if find "$FIRMWARE_DIR" -maxdepth 1 -type f -iname '*nowifi*' | grep -q .; then
+    echo "Error: NoWiFi artifact detected in firmware output." >&2
+    exit 1
+fi
+
+echo "Wi-Fi-enabled firmware copied to: $FIRMWARE_DIR"
+
+ "$kernel_config" || {
+        echo "SquashFS is not built into the kernel." >&2
+        return 1
+    }
+
+    echo "Kernel filesystem checks passed: built-in OverlayFS and SquashFS; F2FS package is selected."
+}
+
 verify_virtual_interface_kernel_config() {
     local kernel_config
     kernel_config=$(find "$BASE_PATH/../$BUILD_DIR/build_dir" -type f -path '*/linux-*/.config' -print -quit)
