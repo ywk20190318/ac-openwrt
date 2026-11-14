@@ -1,195 +1,214 @@
-# Link NN6000 V2（IPQ60xx）ImmortalWrt 实用精简固件
+# Link NN6000 V2「精简固件」
 
-本分支用于构建 **Link NN6000 V2** 路由器固件。在保留 VIKINGYFY/ImmortalWrt 原有设备支持、NSS、无线和板级驱动的基础上，提供 APK 包管理器、原版 LuCI 简体中文界面、Argon 主题、firewall4/nftables，以及 OpenClash 运行所需的内核模块。
+本分支用于 **Link NN6000 V2**。目标是精简预装应用，而不是削减设备驱动或内核能力：
 
-> **状态说明：** 本仓库保存编译配置和构建脚本。本文描述的是预期构建配置；某个版本是否真正包含这些组件，必须以该次 GitHub Actions 编译结果、固件软件包清单（manifest）和设备实测为准。不能仅凭配置文件认定固件已经编译成功。
+- 同步参考项目 `wzdddyy/Link_NN6000V2` 的设备配置和内核模块选择。
+- 保留上游设备驱动、Wi-Fi/NSS、文件系统、USB、网络、VPN 等内核模块及 Kconfig 自动依赖。
+- 删除所有第三方 LuCI 应用插件的预装选择；不在构建过程中额外克隆或安装插件仓库。
+- 保留基础 LuCI 管理界面、Argon 主题和协议配置组件。
+- 插件默认不安装；以后按实际需求选择加入构建，或在系统运行后从匹配的软件源安装。
 
----
+> **重要：** “不预装插件”不等于删除插件的依赖。插件所需的用户态依赖由其软件包 Makefile 声明；内核模块依赖由 Kconfig/package metadata 解析。当前固件会保留参考配置明确选择的全部 kmod，并在编译后逐项核对固件 manifest。
 
-## 1. 设备与源码
+## 1. 源码与设备
 
 | 项目 | 配置 |
 |---|---|
-| 设备型号 | Link NN6000 V2 |
-| OpenWrt 目标 | qualcommax/ipq60xx |
-| CPU 架构 | ARM64 / Cortex-A53（aarch64） |
-| 上游源码 | [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) |
-| 上游分支 | main（以设备 INI 配置为准） |
-| 设备配置 | nn6000v2/configs/kernel/link_nn6000v2_immwrt.config |
-| 构建脚本 | nn6000v2/scripts/build.sh |
-| Actions 编译页面 | [NN6000V2 Practical Minimal Build](https://github.com/ywk20190318/ac-openwrt/actions/workflows/nn6000v2_build.yml) |
+| 设备 | Link NN6000 V2 |
+| OpenWrt target | qualcommax / ipq60xx |
+| 架构 | ARM64 / aarch64 |
+| 固件源码 | [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) |
+| 设备配置参考 | [wzdddyy/Link_NN6000V2](https://github.com/wzdddyy/Link_NN6000V2) |
+| 本分支 | [ac-openwrt / 精简固件](https://github.com/ywk20190318/ac-openwrt/tree/%E7%B2%BE%E7%AE%80%E5%9B%BA%E4%BB%B6) |
+| 构建配置 | `nn6000v2/configs/kernel/link_nn6000v2_immwrt.config` |
+| 构建脚本 | `nn6000v2/scripts/build.sh` |
+| feeds 配置脚本 | `nn6000v2/scripts/feeds.sh` |
+| 插件包接入脚本 | `nn6000v2/scripts/packages.sh` |
 
-本项目不是通用 IPQ60xx 固件配置。请勿将本分支镜像刷入其他型号设备。
-
-## 2. 默认系统配置
-
-| 配置项 | 默认值 / 状态 | 说明 |
-|---|---|---|
-| LAN 管理地址 | 10.0.0.1 | 设备定制配置 |
-| 2.4GHz Wi-Fi | SSID：500/5 | 首次启动配置为启用 |
-| 5GHz Wi-Fi | SSID：500/5 | 首次启动配置为启用 |
-| Wi-Fi 密码 | 88888888 | 两个频段使用相同密码 |
-| 2.4GHz 信道 | 1 | HT20 |
-| 5GHz 信道 | 157 | HE80 |
-| 无线国家码 | US | 首次启动脚本设置；请按设备所在地法规确认 |
-| PPPoE | 默认不配置 | 账号和密码为占位符“-”，脚本会跳过，不会自动拨号 |
-| 连接跟踪上限 | 65535 | 系统支持对应 sysctl 参数时应用 |
-
-首次启动无线脚本仅在无线接口尚无有效加密配置时写入默认 SSID 和密码，避免覆盖已有有效无线配置。需要修改无线名称或密码时，请通过 LuCI 无线页面或 UCI 修改。
-
-## 3. 包管理器与基础软件包
-
-### 3.1 APK 包管理器
-
-- 使用 **APK**，配置项为 CONFIG_USE_APK=y。
-- 不应启用 OPKG，CONFIG_USE_OPKG 不得为 y。
-- 常用命令：
-
-~~~sh
-apk update
-apk search 软件包名
-apk add 软件包名
-apk info
-~~~
-
-软件源必须与当前固件发行版本、目标架构和内核 ABI 匹配。尤其是内核模块（kmod-*），不能从其他固件版本或其他内核版本的软件源混装。
-
-### 3.2 本分支显式选择的主要用户态软件包
-
-以下是设备配置中明确选择的主要软件包，并非上游目标默认软件包的完整清单。
-
-| 软件包名 | 用途 |
-|---|---|
-| luci | 原版 LuCI Web 管理界面 |
-| luci-theme-argon | Argon 管理界面主题 |
-| firewall4 | 基于 nftables 的防火墙管理 |
-| nftables | nftables 用户态工具 |
-| nftables-json | nftables JSON 输出支持 |
-
-LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系统生成对应翻译子包；不是把隐藏翻译包当作普通 feed 包单独安装。
-
-## 4. 内核模块清单
-
-以下模块在设备配置中显式选择。它们属于内核模块包，必须由同一份固件源码、同一次内核构建生成，确保内核版本和 ABI 一致。
-
-| 模块软件包名 | 主要用途 |
-|---|---|
-| kmod-nft-tproxy | nftables TProxy 透明代理支持 |
-| kmod-tun | TUN 虚拟网络设备支持 |
-| kmod-nft-fullcone | nftables Full Cone NAT 支持 |
-| kmod-nft-bridge | nftables bridge 家族支持 |
-| kmod-tcp-bbr | TCP BBR 拥塞控制模块 |
-| kmod-netlink-diag | Netlink 诊断支持 |
-| kmod-inet-diag | INET socket 诊断支持 |
-| kmod-tls | 内核 TLS 支持 |
-
-### OpenClash 说明
-
-本固件配置预留并要求包含以下模块：
-
-- kmod-nft-tproxy
-- kmod-tun
-
-**这不代表固件已经预装 OpenClash。** OpenClash 本体不在当前精简预装列表中。刷入新固件后，只有在软件源提供与当前固件匹配的版本时，才可再通过 APK 安装 OpenClash。
-
-构建脚本会在 make defconfig 后检查上述 8 个模块是否仍被选中，并在编译完成后检查最终固件 manifest 是否逐一包含这 8 个包。任一检查失败，构建流程应报错退出，避免把缺少模块的镜像当作合格成品发布。
-
-如果运行中的旧固件缺少这些模块，仅修改 GitHub 配置或执行 apk add 并不能补齐与旧内核匹配的模块；需要构建并刷入包含对应模块的新固件。
-
-### KMS 服务说明
-
-如果这里的 KMS 指 Windows/Office 局域网 KMS 服务端（例如 vlmcsd），它是用户态 TCP 服务，不需要额外的专用内核模块。需要的是正常网络协议栈、服务程序本身，以及按需允许 LAN 访问 TCP 1688 端口；若希望客户端自动发现，还需要 dnsmasq 配置对应的 `_vlmcs._tcp` SRV 记录。
-
-因此，本固件不会为了 KMS 增加虚构的 `kmod-kms` 或其他无关内核模块。是否把 `vlmcsd` 服务端和 `luci-app-vlmcsd` 管理界面也编入固件，需另行确认；当前配置不代表已预装这两个软件包。
-
-## 5. 保留与精简策略
+## 2. 精简策略
 
 ### 保留
 
-- VIKINGYFY/ImmortalWrt 原有 NN6000 V2 目标配置。
-- 设备所需 NSS、Wi-Fi、IPQ60xx 板级驱动及目标默认软件包。
-- 原版 LuCI、Argon 主题、简体中文语言选择。
-- firewall4 + nftables。
-- 上述显式选择的网络诊断、TCP 和代理相关内核模块。
+- NN6000 V2 设备专用配置、板级驱动和设备固件定义。
+- 参考配置中明确选择的全部内核模块（当前配置统计为 **74 项显式 kmod 选择**）。
+- kmod 的 Kconfig/package 依赖；由 `make defconfig` 自动解析，不手工删减依赖。
+- 上游配置中的非插件基础软件包、USB/Modem 支持、文件系统支持、网络工具和 VPN 协议组件。
+- APK 包管理器。
+- 原版 LuCI 管理界面、Argon 主题、简体中文语言选择。
+- firewall4/nftables 基础防火墙配置。
 
 ### 不预装
 
-以下应用或服务不作为本分支默认预装内容：
+- 所有 `luci-app-*` 应用插件。
+- Docker/Dockerman、代理服务、广告过滤、网络加速、磁盘管理、文件共享、远程组网等可选服务应用。
+- 构建时不额外注入第三方插件 feeds，不克隆第三方插件源码，也不批量安装第三方 feed 中的全部软件包。
 
-- OpenClash 本体及其他代理客户端。
-- Docker、Dockerman、Podman。
-- QuickFile、Nginx、QuickStart、易有云等非必要服务。
-- 额外的第三方服务插件、可选应用和存储工具。
+### 名词区别
 
-精简原则：不为了消除编译警告而强行加入无关应用或依赖。可选功能优先在系统运行后通过匹配的软件源安装；若软件源没有适配包，则不能假定可以直接安装。
+- **内核模块**：例如 `kmod-usb-storage`、`kmod-fs-ext4`、`kmod-nft-tproxy`。本分支保留参考配置中选择的项目。
+- **协议组件**：例如 `luci-proto-qmi`、`luci-proto-wireguard`，用于网络协议配置，不属于 `luci-app-*` 服务插件，按上游配置保留。
+- **LuCI 应用插件**：以 `luci-app-` 开头，本分支不预装。
+- **主题**：`luci-theme-argon` 是界面主题，不是服务插件；当前仍保留。若希望连主题也移除，可单独调整配置。
 
-## 6. 设备定制与启动脚本
+## 3. 插件清单（参考上游仓库可查到的项目）
 
-| 文件 | 功能 |
-|---|---|
-| nn6000v2/patches/991_custom_settings | 调整连接跟踪上限；检查并解除 Dropbear 的 DirectInterface 限制 |
-| nn6000v2/patches/992_set-wifi-uci.sh | 首次启动配置 2.4GHz / 5GHz 无线参数和默认 Wi-Fi |
-| nn6000v2/patches/993_set_pppoe.sh | PPPoE 账号为占位符时跳过；填写有效账号后才执行配置 |
-| nn6000v2/scripts/packages.sh | 安装原版 LuCI collection 与 Argon 主题 |
-| nn6000v2/scripts/feeds.sh | 更新源码默认 feeds，不额外注入第三方服务插件 |
-| nn6000v2/scripts/build.sh | 应用设备配置、执行 defconfig、编译、收集镜像并验证 manifest |
+下面列出参考项目配置文件、插件安装脚本和 README 中能够查到的插件/应用。**清单仅供选择，不代表当前精简固件已安装。** 个别项目的实际包名可能随 feed 更新而变化，添加前请以对应仓库 Makefile 为准。
 
-## 7. GitHub Actions 编译
-
-进入 [Actions 编译页面](https://github.com/ywk20190318/ac-openwrt/actions/workflows/nn6000v2_build.yml)，选择 **Run workflow**。
-
-| 输入项 | 建议值 | 说明 |
+| 插件 / 软件包 | 用途 | 当前状态 |
 |---|---|---|
-| kernel_patchver | 留空 | 使用上游源码默认内核版本；只有明确需要覆盖时才填写，例如 6.6 |
-| clean_ccache | false | 默认复用编译缓存，减少重复编译时间；仅在缓存异常或主动要求全量重编时设为 true |
+| `luci-app-quickfile` / `quickfile` | 文件管理 | 不预装 |
+| `luci-app-istorex` / `luci-app-store` | iStoreX / 应用商店 | 不预装 |
+| `luci-app-dockerman` / `dockerd` / `luci-lib-docker` | Docker 管理及运行时 | 不预装 |
+| `luci-app-lucky` / `lucky` | Lucky 网络工具 | 不预装 |
+| `luci-app-oaf` / `oaf` / `open-app-filter` | 应用过滤 | 不预装 |
+| `luci-app-pbr` / `pbr` | 策略路由 | 不预装 |
+| `luci-app-ttyd` | Web 终端 | 不预装 |
+| `luci-app-upnp` | UPnP 端口映射 | 不预装 |
+| `luci-app-adguardhome` / `AdGuardHome` | DNS 广告过滤 | 不预装 |
+| `luci-app-ghboost` / `ghboost` | GitHub 加速 | 不预装 |
+| `luci-app-mini-diskmanager` | 磁盘管理 | 不预装 |
+| `luci-app-hd-idle` | 硬盘休眠 | 不预装 |
+| `luci-app-p910nd` / `p910nd` | 打印机服务 | 不预装 |
+| `luci-app-smartdns` / `smartdns` | DNS 转发与缓存 | 不预装 |
+| `luci-app-samba4` / `samba4` | SMB 文件共享 | 不预装 |
+| `luci-app-autoreboot` | 定时重启 | 不预装 |
+| `luci-app-sqm` / `sqm-scripts` | SQM 流量管理 | 不预装 |
+| `luci-app-tailscale-community` / `tailscale` | Tailscale 组网 | 不预装 |
+| `luci-app-zerotier` / `zerotier` | ZeroTier 组网 | 不预装 |
+| `luci-app-passwall` | PassWall 代理管理 | 不预装 |
+| `luci-app-wireguard` | WireGuard 管理界面 | 不预装；WireGuard 内核/工具组件保留 |
+| `luci-app-argon-config` | Argon 主题配置 | 不预装；Argon 主题本身保留 |
+| `luci-app-quickstart` / `quickstart` | 快速配置 | 不预装 |
+| `luci-app-sing-box`（如所用 feed 提供）/ `sing-box` | sing-box 代理核心及管理界面 | 不预装；当前仅参考脚本曾更新核心源码，未列入精简预装 |
 
-编译流程会执行设备配置检查、APK/中文语言检查、OpenClash 所需模块检查、固件构建和 manifest 检查。成功后在该次 Actions 运行对应的 Release 中查看固件文件和中文构建说明。
+### 插件来源线索
 
-### 构建成功的判定
+参考项目曾使用或提及以下来源。上游仓库内容可能变化，添加前请检查包名、分支、依赖和许可证：
 
-不能只看 Actions 是否生成了一个 .bin 文件。至少应确认：
+| 来源 | 主要对应项目 |
+|---|---|
+| [kenzok8/openwrt-packages](https://github.com/kenzok8/openwrt-packages) | iStoreX、QuickStart、SmartDNS、Argon、Lucky、AdGuardHome、Dockerman、QuickFile、Mini Disk Manager、GHBoost、OAF、Tailscale、ZeroTier 等 |
+| [OpenWrt-Passwall/openwrt-passwall](https://github.com/Openwrt-Passwall/openwrt-passwall) | PassWall LuCI 插件 |
+| [OpenWrt-Passwall/openwrt-passwall-packages](https://github.com/Openwrt-Passwall/openwrt-passwall-packages) | PassWall 相关依赖包 |
+| [gdy666/luci-app-lucky](https://github.com/gdy666/luci-app-lucky) | Lucky |
+| [wzdddyy/luci-app-adguardhome](https://github.com/wzdddyy/luci-app-adguardhome) | AdGuardHome LuCI 插件 |
+| [pymumu/luci-app-smartdns](https://github.com/pymumu/luci-app-smartdns) | SmartDNS LuCI 插件 |
+| [sbwml/luci-app-quickfile](https://github.com/sbwml/luci-app-quickfile) | QuickFile |
+| [4IceG/luci-app-mini-diskmanager](https://github.com/4IceG/luci-app-mini-diskmanager) | Mini Disk Manager |
+| [lisaac/luci-app-dockerman](https://github.com/lisaac/luci-app-dockerman) | Dockerman |
+| [destan19/OpenAppFilter](https://github.com/destan19/OpenAppFilter) | OAF |
+| [Tokisaki-Galaxy/luci-app-tailscale-community](https://github.com/Tokisaki-Galaxy/luci-app-tailscale-community) | Tailscale LuCI 插件 |
+| [aimeeacker/luci-app-zerotier](https://github.com/aimeeacker/luci-app-zerotier) | ZeroTier LuCI 插件 |
 
-1. Actions 工作流最终状态为成功。
-2. 输出目录中存在目标设备固件镜像。
-3. 对应 manifest 中存在 kmod-nft-tproxy 和 kmod-tun。
-4. 下载后核对镜像文件名、设备型号和构建记录。
+## 4. 以后需要插件，应该在哪里添加
 
-## 8. 刷机与升级注意事项
+当前构建默认不接入第三方插件源。需要某个插件时，按下面流程单独添加，不要一次性恢复全部插件。
 
-- 刷机前确认设备型号确实为 Link NN6000 V2，并备份配置。
-- 不要把 initramfs 测试镜像、factory 镜像和 sysupgrade 镜像混为一谈；应根据镜像类型和设备当前分区/引导方式选择正确刷写路径。
-- 是否可以从当前系统通过 LuCI 或 sysupgrade 升级，取决于新旧固件的设备兼容性、分区布局和升级支持，不能仅凭版本号判断。
-- 如果涉及包管理器从 OPKG 迁移到 APK、分区布局变化或底层设备配置变化，应优先采用已确认适用于该设备的恢复/刷写方式，不要盲目保留旧配置升级。
-- 首次启动后检查 LAN、无线、WAN、SSH、软件源和内核版本。
+### A. 添加软件源
 
-## 9. 设备运行后核验命令
+编辑：
 
-~~~sh
-# 系统与目标信息
-cat /etc/openwrt_release
-uname -r
-apk --print-arch
+```
+nn6000v2/scripts/feeds.sh
+```
 
-# 包管理器与软件源
-cat /etc/apk/repositories.d/distfeeds.list 2>/dev/null
+在 `update_feeds()` 中添加对应 feed，例如：
+
+```sh
+echo "src-git my_plugins https://github.com/组织名/软件包仓库.git;分支名" >> "$feeds_path"
+```
+
+`my_plugins` 是 feed 名称，后续安装包时要使用同一个名称。不要把上面示例中的组织名、仓库地址或分支名原样照抄；应替换为插件官方实际仓库。
+
+### B. 安装插件包定义
+
+编辑：
+
+```
+nn6000v2/scripts/packages.sh
+```
+
+在 `install_luci_base()` 后增加单独安装命令，例如：
+
+```sh
+./scripts/feeds install -p my_plugins luci-app-插件包名
+```
+
+如果插件不在 feed，而是需要从独立 Git 仓库克隆，则在这个脚本中添加明确的克隆函数，并在安装阶段调用。不要恢复上游“批量安装整个第三方 feed”的做法。
+
+### C. 选择是否编入固件
+
+编辑：
+
+```
+nn6000v2/configs/kernel/link_nn6000v2_immwrt.config
+```
+
+增加：
+
+```
+CONFIG_PACKAGE_luci-app-插件包名=y
+```
+
+插件的依赖应由软件包 Makefile 的 `DEPENDS` 声明和 Kconfig 自动解析。不要为了让插件编译通过而随意删除或硬编码其依赖。若插件依赖额外 kmod，应确认对应模块已选中，并通过本分支的构建检查。
+
+### D. 在已刷入的系统中安装
+
+当前分支使用 APK。若软件源已经提供与本固件版本、架构相匹配的插件包，可以在设备上执行：
+
+```sh
 apk update
+apk search 插件包名
+apk add 插件包名
+```
 
-# 检查关键软件包
-apk info | grep -E '^(luci|luci-theme-argon|firewall4|nftables|kmod-nft-tproxy|kmod-tun)'
+若第三方仓库没有提供适配当前 ImmortalWrt 版本的 APK 软件源，则不能只靠 `apk add` 安装。需要先把插件 feed 接入本分支，使用同一份源码和工具链编译出适配包，再安装生成的 APK。
 
-# 检查内核模块与 TUN 设备
-lsmod | grep -E 'tun|nft_tproxy|nft'
-test -c /dev/net/tun && echo "TUN 设备存在" || echo "TUN 设备不存在"
-~~~
+**内核模块特别注意：** `kmod-*` 必须匹配当前运行内核的版本和 ABI。不能从其他固件、其他内核版本或不匹配的软件源安装。若缺少内核模块，通常应重新构建并刷入包含该模块的固件，而不是从网上随便下载一个 kmod。
 
-注意：apk --print-arch 只显示 APK 架构，不代表软件源中的内核模块一定与当前内核 ABI 匹配。安装内核模块前，应确认软件源来自当前固件对应的构建版本。
+## 5. 内核模块保留与构建校验
 
----
+- 设备配置从参考仓库的 `link_nn6000v2_immwrt.config` 同步内核模块选择。
+- 另外保留参考仓库 `docker_deps.config` 中声明的内核模块；即使不预装 Docker，也按“保留全部模块”的要求保留这些选择。
+- 执行 `make defconfig`，由 OpenWrt/ImmortalWrt 的 Kconfig 解析依赖。
+- 构建脚本从最终 `.config` 自动收集所有 `CONFIG_PACKAGE_kmod-*=y` 项。
+- 编译完成后逐项检查固件 manifest；只要缺少任何一项显式选择的 kmod，构建即失败。
 
-## 10. 上游项目与致谢
+这项校验针对“配置中显式选择的 kmod”。上游 target 默认模块和依赖解析额外带入的模块，也会按源码构建系统处理，不在此处手工枚举。
 
+## 6. 基本系统设置
+
+| 项目 | 当前配置 |
+|---|---|
+| 包管理器 | APK |
+| LuCI | 原版 LuCI |
+| 主题 | Argon |
+| LuCI 语言 | 简体中文 |
+| 防火墙 | firewall4 / nftables |
+| LAN 地址 | 10.0.0.1（由本分支首次启动脚本设置） |
+
+软件源必须与当前固件分支和发行版本匹配。不要混用 OpenWrt、ImmortalWrt 或其他第三方固件的软件源。
+
+## 7. 构建
+
+在仓库 Actions 中运行 NN6000 V2 构建工作流，或按现有脚本执行：
+
+```sh
+./nn6000v2/scripts/pre_clone_action.sh link_nn6000v2_immwrt
+./nn6000v2/scripts/build.sh link_nn6000v2_immwrt
+```
+
+构建成功的判定不仅是生成镜像，还包括：
+1. `make defconfig` 后仍启用 APK 和简体中文。
+2. 全部显式选择的 kmod 在最终 manifest 中存在。
+3. 固件产物和 manifest 均已收集到 `firmware/`。
+
+刷机前确认设备型号、镜像类型和当前分区/引导方式，并备份配置。不要将本固件刷入其他型号设备。
+
+## 8. 参考与致谢
+
+- [wzdddyy/Link_NN6000V2](https://github.com/wzdddyy/Link_NN6000V2)
 - [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt)
-- [原始设备脚本参考项目](https://github.com/ZqinKing/wrt_release)
-- [kenzok8/openwrt-packages](https://github.com/kenzok8/openwrt-packages)（仅作为部分插件来源参考；当前精简配置不代表默认安装该仓库全部软件包）
+- 上文列出的插件原始仓库及其维护者。
 
-本分支针对个人设备配置进行维护。具体软件包版本、内核版本和最终固件内容，以每次实际构建产物为准。
+本分支只维护 NN6000 V2 的精简构建配置。插件清单是从参考项目配置、README 和构建脚本整理的可查项目，并不保证每个包在未来仍可用；以插件上游当前 Makefile、feed 分支和依赖声明为准。
