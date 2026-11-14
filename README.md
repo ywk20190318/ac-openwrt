@@ -26,19 +26,25 @@
 
 ***
 
-### 2.2 预装插件与应用
+### 2.2 固件内置与后期安装
 
-| 插件/应用 | 功能说明 |
-| --- | --- |
-| `luci-theme-argon`、`luci-app-argon-config` | Argon 主题及配置 |
-| `luci-app-dockerman` | Docker 管理 |
-| `luci-app-mini-diskmanager` | 磁盘管理 |
-| `luci-app-quickfile` | 文件管理 |
-| `luci-app-p910nd` | USB 打印机共享 |
-| `luci-app-hd-idle` | 硬盘休眠 |
+固件只内置设备启动、无线联网、基础路由、防火墙、DNS、Web 管理和 SONiC FullCone 所必需的组件。可选驱动、文件系统、诊断工具及 LuCI 应用以独立 APK 形式构建，不预装到 rootfs。
 
-- Docker 后端使用上游官方 feeds 的 `docker` / `dockerd` 软件包；本项目预装 Dockerman 管理界面，不替换 Docker daemon 为第三方 fork。
-- 表格列出本固件实际预装的应用；其他可安装包以当前 feeds 提供的包索引为准，不代表额外插件已预装。
+**固件内置：**
+- NN6000V2 必需的 Qualcomm/NSS、以太网及 Wi-Fi 驱动和对应固件。
+- fw4/nftables、基础 NAT/连接跟踪、IPv6 基础协议栈。
+- SONiC FullCone 后端及 LuCI 管理页面。
+- dnsmasq-full、LuCI、Nginx、uWSGI、SSH 和基础系统组件。
+- WireGuard 基础支持及设备监控所需的 autocore。
+
+**后期安装（独立 APK，不占用出厂固件空间）：**
+- USB 存储、打印机、串口、4G/5G 网卡及 USB 网卡驱动。
+- exFAT、VFAT、EXT4、NTFS3、CIFS、NFS 等可选文件系统。
+- 可选 IPv6 iptables 兼容层、隧道和路由模块。
+- tcpdump、mtr、iperf3、htop、ethtool、curl、磁盘工具等诊断/维护工具。
+- QuickFile、磁盘管理、硬盘休眠、打印机管理、Argon 主题等可选 LuCI 应用。
+
+上述后期安装包仍由当前固件对应的构建流程生成；内核模块 APK 必须与设备当前运行的内核 ABI 完全匹配。Docker、dockerd、Dockerman、iStoreOS 商店及不需要的插件不纳入本项目固件和构建配置。
 ***
 
 ### 2.3 SONiC FullCone NAT
