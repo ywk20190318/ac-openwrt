@@ -61,32 +61,60 @@ jobs:
           set -euo pipefail
           for script in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do bash -n "$script"; done
           sh -n nn6000v2/patches/994_set_apk_repos
-          if grep -Eiq '^CONFIG_PACKAGE_[^=]*(docker|dockerman)[^=]*=(y|m)
+          CONFIG=nn6000v2/configs/link_nn6000v2_immwrt.config
+          if grep -Eiq '^CONFIG_PACKAGE_[^=]*(docker|dockerman)[^=]*=(y|m)$' "$CONFIG"; then
+            echo "Docker/Dockerman package remains selected."
+            grep -Ein '^CONFIG_PACKAGE_[^=]*(docker|dockerman)[^=]*=(y|m)$' "$CONFIG"
+            exit 1
+          fi
+          if [ -e nn6000v2/configs/docker_deps.config ]; then
+            echo "Obsolete docker_deps.config remains."
+            exit 1
+          fi
+          if grep -Rni 'docker_deps\.config' nn6000v2/scripts; then
+            echo "Build scripts still reference docker_deps.config."
+            exit 1
+          fi
           if grep -Eiq 'passwall|smartdns|tailscale|zerotier|lucky|adguardhome|ghboost|openappfilter|istoreos' nn6000v2/scripts/{packages,update,feeds,system}.sh; then
             echo "Removed plugin integration remains in build scripts."
             exit 1
           fi
-          if grep -Eq '^CONFIG_PACKAGE_(luci-app-store|luci-app-istorex|taskd|luci-lib-taskd|luci-lib-xterm|luci-lib-ipkg|luci-app-passwall|luci-app-smartdns|luci-app-tailscale-community|luci-app-zerotier|luci-app-sqm|luci-app-lucky|luci-app-adguardhome|luci-app-ghboost|luci-app-oaf|kmod-nft-fullcone|kmod-nft-nat6)=y' nn6000v2/configs/link_nn6000v2_immwrt.config; then
+          if grep -Eq '^CONFIG_PACKAGE_(luci-app-store|luci-app-istorex|taskd|luci-lib-taskd|luci-lib-xterm|luci-lib-ipkg|luci-app-passwall|luci-app-smartdns|luci-app-tailscale-community|luci-app-zerotier|luci-app-sqm|luci-app-lucky|luci-app-adguardhome|luci-app-ghboost|luci-app-oaf|kmod-nft-fullcone|kmod-nft-nat6)=(y|m)$' "$CONFIG"; then
             echo "Removed or invalid package remains selected."
             exit 1
           fi
-          grep -q '^CONFIG_PACKAGE_fullconenat-sonic=y' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_luci-app-fullconenat-sonic=y' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_IPV6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-nf-nat6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-nf-log6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-nf-reject6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-ip6tables=m' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-ip6-tunnel=m' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-sit=m' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-gre6=m' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-fou6=m' nn6000v2/configs/link_nn6000v2_immwrt.config
-          test -s nn6000v2/patches/fullcone/firewall4/004-independent-ipv6.patch
-          test -s nn6000v2/patches/fullcone/luci-app-fullconenat-sonic/fullconenat-sonic.js
-          grep -q 'prepare' nn6000v2/scripts/build.sh
+          for item in
+            'CONFIG_PACKAGE_kmod-ath=y'
+            'CONFIG_PACKAGE_kmod-ath11k=y'
+            'CONFIG_PACKAGE_kmod-ath11k-ahb=y'
+            'CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y'
+            'CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y'
+            'CONFIG_PACKAGE_luci-nginx=y'
+            'CONFIG_PACKAGE_nginx-ssl=y'
+            'CONFIG_PACKAGE_dnsmasq-full=y'
+            'CONFIG_PACKAGE_kmod-fs-f2fs=y'
+            'CONFIG_PACKAGE_kmod-fs-squashfs=y'
+            'CONFIG_PACKAGE_kmod-fs-overlay=y'
+            'CONFIG_PACKAGE_fullconenat-sonic=y'
+            'CONFIG_PACKAGE_luci-app-fullconenat-sonic=y'
+            'CONFIG_IPV6=y'
+            'CONFIG_PACKAGE_kmod-nf-nat6=y'
+            'CONFIG_PACKAGE_kmod-nf-log6=y'
+            'CONFIG_PACKAGE_kmod-nf-reject6=y'
+            'CONFIG_PACKAGE_kmod-ip6tables=m'
+            'CONFIG_PACKAGE_kmod-ip6-tunnel=m'
+            'CONFIG_PACKAGE_kmod-sit=m'
+            'CONFIG_PACKAGE_kmod-gre6=m'
+            'CONFIG_PACKAGE_kmod-fou6=m'
+            'CONFIG_PACKAGE_kmod-wireguard=m'
+            'CONFIG_PACKAGE_wireguard-tools=m'
+            'CONFIG_PACKAGE_luci-proto-relay=m'
+          do grep -qx "$item" "$CONFIG" || { echo "Missing expected config: $item"; exit 1; }; done
+          grep -q 'verify_core_firmware_packages' nn6000v2/scripts/build.sh
+          grep -q 'verify_no_docker_and_modular_packages' nn6000v2/scripts/build.sh
           grep -q 'preflight_sonic_fullcone' nn6000v2/scripts/build.sh
           git diff --check
-          echo "Pre-build validation passed."
+          echo "Static pre-build validation passed."
 
       - name: Restore build cache
         uses: actions/cache@v4
