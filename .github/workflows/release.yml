@@ -86,16 +86,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            \${{ env.BUILD_DIR }}/.ccache
-            \${{ env.BUILD_DIR }}/staging_dir
-          key: \${{ runner.os }}-\${{ hashFiles('repo_flag') }}
+            ${{ env.BUILD_DIR }}/.ccache
+            ${{ env.BUILD_DIR }}/staging_dir
+          key: ${{ runner.os }}-${{ hashFiles('repo_flag') }}
           restore-keys: |
-            \${{ runner.os }}-
+            ${{ runner.os }}-
 
       - name: Configure optional PPPoE credentials
         env:
-          PPPoE_USER: \${{ inputs.pppoe_username || '-' }}
-          PPPoE_PASS: \${{ inputs.pppoe_password || '-' }}
+          PPPoE_USER: ${{ inputs.pppoe_username || '-' }}
+          PPPoE_PASS: ${{ inputs.pppoe_password || '-' }}
         run: |
           python3 - <<'PY'
           import os
@@ -146,8 +146,8 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: \${{ env.BUILD_DATE }}_\${{ env.DEVICE_MODEL }}
-          name: \${{ env.BUILD_DATE }}_\${{ env.DEVICE_MODEL }}
+          tag_name: ${{ env.BUILD_DATE }}_${{ env.DEVICE_MODEL }}
+          name: ${{ env.BUILD_DATE }}_${{ env.DEVICE_MODEL }}
           files: |
             firmware/*.bin
             firmware/*.manifest
