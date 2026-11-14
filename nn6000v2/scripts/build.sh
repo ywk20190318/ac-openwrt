@@ -14,8 +14,15 @@ fi
 
 BASE_PATH=$(cd "$NN6000V2_PATH" && pwd)
 
-Dev=$1
-Build_Mod=$2
+Dev=${1:?Usage: build.sh <device-config> [debug]}
+Build_Mod=${2:-release}
+
+case "$Dev" in
+    *nowifi*)
+        echo "Error: NoWiFi firmware targets are disabled; build the WiFi-enabled device only." >&2
+        exit 1
+        ;;
+esac
 
 CONFIG_FILE="$BASE_PATH/configs/$Dev.config"
 
@@ -72,6 +79,36 @@ verify_nginx_webserver_config() {
 
     echo "Nginx/LuCI package dependency checks passed; uhttpd packages are disabled."
 }
+
+verify_wifi_packages_config() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+    for package in kmod-ath kmod-ath11k kmod-ath11k-ahb ath11k-firmware-ipq6018-ddwrt ath11k-firmware-qcn9074-ddwrt; do
+        if ! grep -q "^CONFIG_PACKAGE_${package}=y$" "$config_path"; then
+            echo "Error: required Wi-Fi driver/firmware package is missing after defconfig: $package" >&2
+            return 1
+        fi
+    done
+    echo "Wi-Fi driver and firmware package checks passed."
+}
+
+verify_kernel_partition_size() {
+    local image_mk="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
+    [ -f "$image_mk" ] || { echo "Missing target image definition: $image_mk" >&2; return 1; }
+    sed -n '/link_nn6000-common/,/endef/p' "$image_mk" | grep -q 'KERNEL_SIZE := 12288k' || {
+        echo "Error: Link NN6000 kernel partition must be 12288k (12 MiB)." >&2
+        return 1
+    }
+    echo "Link NN6000 kernel partition verified: 12288k (12 MiB)."
+}
+
+preflight_sonic_fullcone() {
+    local kernel_patch_dir="$BASE_PATH/patches/fullcone/kernel"
+    local required
+    for required in 984-add-sonic-fullcone-support.patch 986-add-sonic-fullcone-to-nft.patch 987-sonic-fullcone-fix-races-and-drops.patch; do
+        [ -s "$kernel_patch_dir/$required" ] || { echo "Missing SONiC FullCone kernel patch: $kernel_patch_dir/$required" >&2; return 1; }
+    done
+    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y
 
 apply_config() {
     \cp -f "$CONFIG_FILE" "$BASE_PATH/../$BUILD_DIR/.config"
@@ -149,8 +186,14 @@ modify_kernel_size() {
     
     if [ -f "$ipq60xx_mk_path" ]; then
         # Change KERNEL_SIZE from 6144k to 12288k for link_nn6000 devices
-        sed -i '/link_nn6000-common/,/endef/{s/KERNEL_SIZE := 6144k/KERNEL_SIZE := 12288k/g}' "$ipq60xx_mk_path"
-        echo "Updated KERNEL_SIZE to 12288k (12MB) for link_nn6000 devices"
+        if ! sed -n '/link_nn6000-common/,/endef/p' "$ipq60xx_mk_path" | grep -q 'KERNEL_SIZE := 12288k'; then
+            sed -i '/link_nn6000-common/,/endef/{s/KERNEL_SIZE := 6144k/KERNEL_SIZE := 12288k/g}' "$ipq60xx_mk_path"
+        fi
+        if ! sed -n '/link_nn6000-common/,/endef/p' "$ipq60xx_mk_path" | grep -q 'KERNEL_SIZE := 12288k'; then
+            echo "Error: failed to set Link NN6000 kernel size to 12288k." >&2
+            return 1
+        fi
+        echo "Verified KERNEL_SIZE=12288k (12 MiB) for link_nn6000 devices"
     fi
 }
 
@@ -159,203 +202,11 @@ modify_kernel_size
 cd "$BASE_PATH/../$BUILD_DIR"
 make defconfig
 verify_nginx_webserver_config
-
-preflight_sonic_fullcone() {
-    local kernel_patch_dir="$BASE_PATH/patches/fullcone/kernel"
-    local required
-    for required in \
-        984-add-sonic-fullcone-support.patch \
-        986-add-sonic-fullcone-to-nft.patch \
-        987-sonic-fullcone-fix-races-and-drops.patch; do
-        [ -s "$kernel_patch_dir/$required" ] || {
-            echo "Missing SONiC FullCone kernel patch: $kernel_patch_dir/$required" >&2
-            return 1
-        }
-    done
-    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y
-    exit 0
-fi
-
-TARGET_DIR="$BASE_PATH/../$BUILD_DIR/bin/targets"
-if [[ -d $TARGET_DIR && "$Dev" != *"nowifi"* ]]; then
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec rm -f {} +
-fi
-
-if [[ "$Dev" != *"nowifi"* ]]; then
-    make download -j$(($(nproc) * 2))
-    make -j$(($(nproc) + 1)) || make -j1 V=s
-fi
-
-if [[ -d action_build ]]; then
-    make clean
-fi
-
-# 如果是正常版本编译，完成后自动编译无 WiFi 版本
-if [[ "$Dev" != *"nowifi"* ]]; then
-    echo ""
-    echo "=============================================="
-    echo "  版本编译完成！"
-    echo "  开始编译无 WiFi 版本..."
-    echo "=============================================="
-    echo ""
-    
-    # 先复制带 WiFi 版本到最终目录
-    FIRMWARE_DIR="$BASE_PATH/../firmware"
-    \rm -rf "$FIRMWARE_DIR"
-    mkdir -p "$FIRMWARE_DIR"
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
-    
-    # 直接修改当前配置文件（禁用 WiFi）
-    cd "$BASE_PATH/../$BUILD_DIR"
-    
-    echo "应用配置..."
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath=y$/CONFIG_PACKAGE_kmod-ath=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k=y$/CONFIG_PACKAGE_kmod-ath11k=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-ahb=y$/CONFIG_PACKAGE_kmod-ath11k-ahb=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-pci=y$/CONFIG_PACKAGE_kmod-ath11k-pci=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018=y$/CONFIG_PACKAGE_ath11k-firmware-ipq6018=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y$/CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074=y$/CONFIG_PACKAGE_ath11k-firmware-qcn9074=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y$/CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n/' "$CONFIG_FILE"
-    
-    cp -f "$CONFIG_FILE" .config
-    make defconfig
-    verify_nginx_webserver_config
-    
-    echo "编译无 WiFi 版本..."
-    make -j$(($(nproc) + 1)) || make -j1 V=s
-    
-    echo "复制固件..."
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) | while read -r file; do
-        filename=$(basename "$file")
-        new_filename=$(echo "$filename" | sed 's/\.\([^.]*\)$/_nowifi.\1/')
-        echo "Copying: $filename -> $new_filename"
-        cp -f "$file" "$FIRMWARE_DIR/$new_filename"
-    done
-    
-    # 恢复配置文件
-    echo "恢复配置文件..."
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath=n$/CONFIG_PACKAGE_kmod-ath=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k=n$/CONFIG_PACKAGE_kmod-ath11k=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-ahb=n$/CONFIG_PACKAGE_kmod-ath11k-ahb=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-pci=n$/CONFIG_PACKAGE_kmod-ath11k-pci=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n$/CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n$/CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y/' "$CONFIG_FILE"
-    
-    echo ""
-    echo "=============================================="
-    echo "  双版本已编译完成！"
-    echo "  输出目录：$FIRMWARE_DIR"
-    echo "=============================================="
-    echo ""
-    
-    if [[ -d action_build ]]; then
-        make clean
-    fi
-    
-    exit 0
-fi
- .config || {
-        echo "kmod-nft-nat is required for SONiC FullCone (nft_masq)." >&2
-        return 1
-    }
-    if grep -Eq '^CONFIG_PACKAGE_kmod-nft-fullcone=y$|^CONFIG_PACKAGE_kmod-nft-nat6=y
-    exit 0
-fi
-
-TARGET_DIR="$BASE_PATH/../$BUILD_DIR/bin/targets"
-if [[ -d $TARGET_DIR && "$Dev" != *"nowifi"* ]]; then
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec rm -f {} +
-fi
-
-if [[ "$Dev" != *"nowifi"* ]]; then
-    make download -j$(($(nproc) * 2))
-    make -j$(($(nproc) + 1)) || make -j1 V=s
-fi
-
-if [[ -d action_build ]]; then
-    make clean
-fi
-
-# 如果是正常版本编译，完成后自动编译无 WiFi 版本
-if [[ "$Dev" != *"nowifi"* ]]; then
-    echo ""
-    echo "=============================================="
-    echo "  版本编译完成！"
-    echo "  开始编译无 WiFi 版本..."
-    echo "=============================================="
-    echo ""
-    
-    # 先复制带 WiFi 版本到最终目录
-    FIRMWARE_DIR="$BASE_PATH/../firmware"
-    \rm -rf "$FIRMWARE_DIR"
-    mkdir -p "$FIRMWARE_DIR"
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
-    
-    # 直接修改当前配置文件（禁用 WiFi）
-    cd "$BASE_PATH/../$BUILD_DIR"
-    
-    echo "应用配置..."
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath=y$/CONFIG_PACKAGE_kmod-ath=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k=y$/CONFIG_PACKAGE_kmod-ath11k=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-ahb=y$/CONFIG_PACKAGE_kmod-ath11k-ahb=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-pci=y$/CONFIG_PACKAGE_kmod-ath11k-pci=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018=y$/CONFIG_PACKAGE_ath11k-firmware-ipq6018=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y$/CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074=y$/CONFIG_PACKAGE_ath11k-firmware-qcn9074=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y$/CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n/' "$CONFIG_FILE"
-    
-    cp -f "$CONFIG_FILE" .config
-    make defconfig
-    verify_nginx_webserver_config
-    
-    echo "编译无 WiFi 版本..."
-    make -j$(($(nproc) + 1)) || make -j1 V=s
-    
-    echo "复制固件..."
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) | while read -r file; do
-        filename=$(basename "$file")
-        new_filename=$(echo "$filename" | sed 's/\.\([^.]*\)$/_nowifi.\1/')
-        echo "Copying: $filename -> $new_filename"
-        cp -f "$file" "$FIRMWARE_DIR/$new_filename"
-    done
-    
-    # 恢复配置文件
-    echo "恢复配置文件..."
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath=n$/CONFIG_PACKAGE_kmod-ath=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k=n$/CONFIG_PACKAGE_kmod-ath11k=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-ahb=n$/CONFIG_PACKAGE_kmod-ath11k-ahb=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-pci=n$/CONFIG_PACKAGE_kmod-ath11k-pci=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n$/CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n$/CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y/' "$CONFIG_FILE"
-    
-    echo ""
-    echo "=============================================="
-    echo "  双版本已编译完成！"
-    echo "  输出目录：$FIRMWARE_DIR"
-    echo "=============================================="
-    echo ""
-    
-    if [[ -d action_build ]]; then
-        make clean
-    fi
-    
-    exit 0
-fi
- .config; then
-        echo "Obsolete standalone FullCone or invalid nft-nat6 package remains selected." >&2
-        return 1
-    fi
-    grep -q 'fullcone6: \[ "bool", "0" \]' package/network/config/firewall4/patches/002-independent-ipv6.patch || {
-        echo "firewall4 patch lacks the independent IPv6 global gate." >&2
-        return 1
-    }
-    echo "SONiC FullCone static preflight passed."
-}
-
+verify_wifi_packages_config
+verify_kernel_partition_size
 preflight_sonic_fullcone
 
-# Apply package/kernel patches in prepare-only mode before any full compilation.
+# Validate all selected patch series before starting the full build.
 make target/linux/prepare
 make package/libs/libnftnl/prepare
 make package/network/utils/nftables/prepare
@@ -367,81 +218,30 @@ if [[ $Build_Mod == "debug" ]]; then
 fi
 
 TARGET_DIR="$BASE_PATH/../$BUILD_DIR/bin/targets"
-if [[ -d $TARGET_DIR && "$Dev" != *"nowifi"* ]]; then
+if [[ -d $TARGET_DIR ]]; then
     find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec rm -f {} +
 fi
 
-if [[ "$Dev" != *"nowifi"* ]]; then
-    make download -j$(($(nproc) * 2))
-    make -j$(($(nproc) + 1)) || make -j1 V=s
-fi
+make download -j$(($(nproc) * 2))
+make -j$(($(nproc) + 1)) || make -j1 V=s
 
 if [[ -d action_build ]]; then
     make clean
 fi
 
-# 如果是正常版本编译，完成后自动编译无 WiFi 版本
-if [[ "$Dev" != *"nowifi"* ]]; then
-    echo ""
-    echo "=============================================="
-    echo "  版本编译完成！"
-    echo "  开始编译无 WiFi 版本..."
-    echo "=============================================="
-    echo ""
-    
-    # 先复制带 WiFi 版本到最终目录
-    FIRMWARE_DIR="$BASE_PATH/../firmware"
-    \rm -rf "$FIRMWARE_DIR"
-    mkdir -p "$FIRMWARE_DIR"
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
-    
-    # 直接修改当前配置文件（禁用 WiFi）
-    cd "$BASE_PATH/../$BUILD_DIR"
-    
-    echo "应用配置..."
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath=y$/CONFIG_PACKAGE_kmod-ath=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k=y$/CONFIG_PACKAGE_kmod-ath11k=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-ahb=y$/CONFIG_PACKAGE_kmod-ath11k-ahb=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-pci=y$/CONFIG_PACKAGE_kmod-ath11k-pci=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018=y$/CONFIG_PACKAGE_ath11k-firmware-ipq6018=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y$/CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074=y$/CONFIG_PACKAGE_ath11k-firmware-qcn9074=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y$/CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n/' "$CONFIG_FILE"
-    
-    cp -f "$CONFIG_FILE" .config
-    make defconfig
-    verify_nginx_webserver_config
-    
-    echo "编译无 WiFi 版本..."
-    make -j$(($(nproc) + 1)) || make -j1 V=s
-    
-    echo "复制固件..."
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) | while read -r file; do
-        filename=$(basename "$file")
-        new_filename=$(echo "$filename" | sed 's/\.\([^.]*\)$/_nowifi.\1/')
-        echo "Copying: $filename -> $new_filename"
-        cp -f "$file" "$FIRMWARE_DIR/$new_filename"
-    done
-    
-    # 恢复配置文件
-    echo "恢复配置文件..."
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath=n$/CONFIG_PACKAGE_kmod-ath=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k=n$/CONFIG_PACKAGE_kmod-ath11k=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-ahb=n$/CONFIG_PACKAGE_kmod-ath11k-ahb=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-pci=n$/CONFIG_PACKAGE_kmod-ath11k-pci=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n$/CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n$/CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y/' "$CONFIG_FILE"
-    
-    echo ""
-    echo "=============================================="
-    echo "  双版本已编译完成！"
-    echo "  输出目录：$FIRMWARE_DIR"
-    echo "=============================================="
-    echo ""
-    
-    if [[ -d action_build ]]; then
-        make clean
-    fi
-    
-    exit 0
+# Publish only the Wi-Fi-enabled build.
+FIRMWARE_DIR="$BASE_PATH/../firmware"
+\rm -rf "$FIRMWARE_DIR"
+mkdir -p "$FIRMWARE_DIR"
+find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
+
+if find "$FIRMWARE_DIR" -maxdepth 1 -type f -iname '*nowifi*' | grep -q .; then
+    echo "Error: NoWiFi artifact detected in firmware output." >&2
+    exit 1
+fi
+
+echo "Wi-Fi-enabled firmware copied to: $FIRMWARE_DIR"
+
+if [[ -d action_build ]]; then
+    make clean
 fi
