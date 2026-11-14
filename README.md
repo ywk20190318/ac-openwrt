@@ -34,6 +34,7 @@
 | `luci-app-mini-diskmanager` | 磁盘管理 |
 | `luci-app-quickfile` | 文件管理 |
 | `luci-app-p910nd` | USB 打印机共享 |
+| `luci-app-fullconenat-sonic` | IPv4 / IPv6 FullCone NAT 管理 |
 | `luci-app-hd-idle` | 硬盘休眠 |
 ***
 
@@ -44,7 +45,7 @@
 - IPv4 保留上游默认值（全局及 WAN 区域开启）；IPv6 FullCone 全局及 WAN 区域默认关闭。
 - 两个协议族的总开关、区域开关和伪装联动分别处理，互不覆盖。
 - 使用 ImmortalWrt 上游 fullconenat-sonic 后端包和 luci-app-fullconenat-sonic 管理界面；Linux 6.18 内核、libnftnl、nftables 和 firewall4 补丁由上游提供，后端包通过 Kconfig 启用 CONFIG_NF_NAT_FULLCONE，不使用独立 FullCone kmod。
-- 构建会先检查上游后端包、LuCI 包及补丁，并运行内核、libnftnl、nftables、firewall4 和 SONiC LuCI 包的 prepare 阶段检查。
+- 构建会先检查上游后端包、LuCI 包及补丁，并运行内核、libnftnl、nftables、firewall4、FullCone 后端和 SONiC LuCI 包的 prepare 阶段检查。
 
 ### 2.4 APK 软件源与内核 ABI
 
