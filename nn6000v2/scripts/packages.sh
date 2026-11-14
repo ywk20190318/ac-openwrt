@@ -65,7 +65,17 @@ install_openclash() {
         echo "错误：OpenClash LuCI Makefile 不存在。" >&2
         return 1
     }
-    echo "✓ OpenClash 源码准备完成"
+
+    # OpenClash's Makefile calls po2lmo to build translation catalogs.
+    if ! command -v po2lmo >/dev/null 2>&1; then
+        echo "正在编译并安装 OpenClash 所需的 po2lmo 主机工具..."
+        (cd "$target_dir/luci-app-openclash/tools/po2lmo" && make && sudo make install)
+    fi
+    command -v po2lmo >/dev/null 2>&1 || {
+        echo "错误：po2lmo 主机工具不可用，无法构建 OpenClash 翻译。" >&2
+        return 1
+    }
+    echo "✓ OpenClash 源码和 po2lmo 工具准备完成"
 }
 
 install_diskman() {
