@@ -26,17 +26,23 @@
 
 ***
 
-### 2.2 预装插件（6 个）
+### 2.2 预装插件与应用
 
-| 插件名称                     | 功能说明          |
-| ------------------------ | ------------- |
-| **luci-app-argon**       | Argon 主题      |
-| **luci-app-dockerman**   | Docker 管理    |
-| **luci-app-mini_diskmanager** | 磁盘管理    |
-| **luci-app-quickfile**   | 文件管理          |
-| **luci-app-p910nd**      | USB 打印机共享     |
-| **luci-app-hd-idle**     | 硬盘休眠          |
-
+| 插件/应用 | 功能说明 |
+| --- | --- |
+| `luci-theme-argon`、`luci-app-argon-config` | Argon 主题及配置 |
+| `luci-app-dockerman` | Docker 管理 |
+| `luci-app-mini-diskmanager` | 磁盘管理 |
+| `luci-app-quickfile` | 文件管理 |
+| `luci-app-p910nd` | USB 打印机共享 |
+| `luci-app-hd-idle` | 硬盘休眠 |
+| `luci-app-smartdns` | SmartDNS 管理 |
+| `luci-app-lucky` | Lucky 管理 |
+| `luci-app-adguardhome` | AdGuardHome 管理 |
+| `luci-app-ghboost` | GHBoost 管理 |
+| `luci-app-oaf` | 应用过滤 |
+| `luci-app-tailscale-community` | Tailscale 管理 |
+| `luci-app-zerotier` | ZeroTier 管理 |
 ***
 
 ### 2.3 已移除的 iStore 组件
