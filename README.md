@@ -68,13 +68,28 @@
 - 手动触发时可选择 `preflight_only`，先运行脚本语法、配置、内核补丁及 FullCone/LuCI prepare 检查，不执行完整编译。
 - 每次只构建带 WiFi 驱动的固件，不生成 `nowifi` 版本。
 
-## 4. 插件来源
+## 4. 已排除的插件与服务
 
-部分插件源自：<https://github.com/kenzok8/openwrt-packages>
+以下项目不进入固件，也不作为本设备的默认插件方案：
+
+| 类别 | 排除项目 |
+|---|---|
+| 代理/翻墙插件 | Passwall、Passwall2 |
+| DNS/过滤插件 | SmartDNS、AdGuardHome |
+| 组网/VPN 服务 | Tailscale、ZeroTier |
+| 其他网络/管理插件 | Lucky、OpenAppFilter（OAF）、SQM |
+| 第三方工具/商店 | GHBoost、QuickStart、iStoreOS 商店及相关 taskd 组件 |
+| 容器 | Docker、dockerd、Dockerman 及 Docker 依赖 |
+
+QuickFile、磁盘管理、硬盘休眠、打印机管理和 Argon 主题属于可选 LuCI 应用，不预装固件；若需要，可从匹配当前固件的软件源安装。它们不等同于上表排除的插件服务。
+
+## 5. 软件包来源
+
+本项目保留上游 feeds 作为可选 APK 的构建来源，但不会因此将所有 feed 包装入固件。
 
 ***
 
-## 5. 项目结构
+## 6. 项目结构
 
 ```
 Link_NN6000V2/
