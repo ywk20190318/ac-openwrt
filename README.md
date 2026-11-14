@@ -60,13 +60,24 @@ apk info
 
 | 软件包名 | 用途 |
 |---|---|
-| luci | 原版 LuCI Web 管理界面 |
+| luci-nginx | 原版 LuCI 管理界面，使用 Nginx/uWSGI 提供 Web 服务 |
 | luci-theme-argon | Argon 管理界面主题 |
 | firewall4 | 基于 nftables 的防火墙管理 |
 | nftables | nftables 用户态工具 |
 | nftables-json | nftables JSON 输出支持 |
+| luci-app-quickfile / quickfile | QuickFile Web 文件管理器及 Rust 后端 |
+| nginx-ssl / nginx-util / nginx-mod-luci / nginx-mod-ubus | QuickFile 所需的 Nginx 反向代理和 LuCI 接入组件 |
+| uwsgi / uwsgi-luci-support | Nginx 运行 LuCI 所需组件 |
+| block-mount / ntfs3-mount / fuse-utils | 磁盘挂载和文件系统用户态工具 |
+| usbutils / sgdisk / resize2fs | USB 与磁盘分区、文件系统维护工具 |
 
-LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系统生成对应翻译子包；不是把隐藏翻译包当作普通 feed 包单独安装。
+LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系统生成对应翻译子包；不是把隐藏翻译包当作普通 feed 包单独安装。主 Web 服务采用 luci-nginx，以满足 QuickFile 对 Nginx 反向代理的依赖；Nginx 默认仅监听 HTTP/80。Argon 仍作为默认主题。
+
+### 3.3 QuickFile 与外接存储支持
+
+QuickFile 上游包由 LuCI 前端和 Rust 后端组成，前端依赖 `luci-nginx` 与 `quickfile`；上游说明明确要求 Nginx 反向代理。因此本次不是单独塞入一个 LuCI 插件，而是同时编译 Nginx、uWSGI 和 LuCI-Nginx 运行组件。QuickFile 源码固定到上游提交 `ef2ca5d16ad1156539930d8763c3069f6ac4eb12`，避免每次构建自动漂移。
+
+外接磁盘支持包含 USB mass-storage/UAS、USB2/USB3 主机控制器，以及 ext4、FAT/VFAT、exFAT、NTFS3、F2FS、XFS 文件系统模块。另编入 block-mount、NTFS3 挂载工具、USB 识别和分区/文件系统维护工具。是否自动挂载仍由运行时挂载配置决定；编入驱动不等于自动格式化或改动磁盘。
 
 ## 4. 内核模块清单
 
@@ -82,6 +93,10 @@ LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系�
 | kmod-netlink-diag | Netlink 诊断支持 |
 | kmod-inet-diag | INET socket 诊断支持 |
 | kmod-tls | 内核 TLS 支持 |
+| kmod-usb-storage / kmod-usb-storage-uas / kmod-usb-storage-extras | USB 大容量存储与 UAS |
+| kmod-usb2 / kmod-usb3 / kmod-usb-dwc3 / kmod-usb-xhci-hcd / kmod-usb-ehci / kmod-usb-ohci | USB 主机控制器支持 |
+| kmod-fs-ext4 / kmod-fs-vfat / kmod-fs-exfat | 常见 Linux、FAT 与 exFAT 磁盘格式 |
+| kmod-fs-ntfs3 / kmod-fs-f2fs / kmod-fs-xfs | NTFS3、F2FS 与 XFS 文件系统 |
 
 ### OpenClash 说明
 
@@ -118,7 +133,7 @@ LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系�
 
 - OpenClash 本体及其他代理客户端。
 - Docker、Dockerman、Podman。
-- QuickFile、Nginx、QuickStart、易有云等非必要服务。
+- QuickStart、易有云等非必要服务。QuickFile 与其必需的 Nginx 组件现已纳入本次固件。
 - 额外的第三方服务插件、可选应用和存储工具。
 
 精简原则：不为了消除编译警告而强行加入无关应用或依赖。可选功能优先在系统运行后通过匹配的软件源安装；若软件源没有适配包，则不能假定可以直接安装。
@@ -130,8 +145,8 @@ LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系�
 | nn6000v2/patches/991_custom_settings | 调整连接跟踪上限；检查并解除 Dropbear 的 DirectInterface 限制 |
 | nn6000v2/patches/992_set-wifi-uci.sh | 首次启动配置 2.4GHz / 5GHz 无线参数和默认 Wi-Fi |
 | nn6000v2/patches/993_set_pppoe.sh | PPPoE 账号为占位符时跳过；填写有效账号后才执行配置 |
-| nn6000v2/scripts/packages.sh | 安装原版 LuCI collection 与 Argon 主题 |
-| nn6000v2/scripts/feeds.sh | 更新源码默认 feeds，不额外注入第三方服务插件 |
+| nn6000v2/scripts/packages.sh | 安装 luci-nginx、Argon、Nginx/uWSGI，并固定版本拉取 QuickFile 源码 |
+| nn6000v2/scripts/feeds.sh | 更新源码默认 feeds；仅单独拉取 QuickFile，不全量安装第三方 feed |
 | nn6000v2/scripts/build.sh | 应用设备配置、执行 defconfig、编译、收集镜像并验证 manifest |
 
 ## 7. GitHub Actions 编译
@@ -190,6 +205,6 @@ test -c /dev/net/tun && echo "TUN 设备存在" || echo "TUN 设备不存在"
 
 - [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt)
 - [原始设备脚本参考项目](https://github.com/ZqinKing/wrt_release)
-- [kenzok8/openwrt-packages](https://github.com/kenzok8/openwrt-packages)（仅作为部分插件来源参考；当前精简配置不代表默认安装该仓库全部软件包）
+- [sbwml/luci-app-quickfile](https://github.com/sbwml/luci-app-quickfile)（QuickFile 上游源码，固定提交构建）
 
 本分支针对个人设备配置进行维护。具体软件包版本、内核版本和最终固件内容，以每次实际构建产物为准。

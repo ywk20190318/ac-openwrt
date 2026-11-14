@@ -1,4 +1,4 @@
-name: NN6000V2 Practical Minimal Build
+name: NN6000V2 Practical Minimal + QuickFile Build
 
 on:
   workflow_dispatch:
@@ -154,15 +154,22 @@ jobs:
             echo "## 系统配置"
             echo "- 管理地址：10.0.0.1"
             echo "- 包管理器：APK（不使用 OPKG）"
-            echo "- Web 管理：原版 LuCI + Argon 主题 + 简体中文语言"
+            echo "- Web 管理：原版 LuCI（luci-nginx）+ Argon 主题 + 简体中文语言"
+            echo "- 文件管理：QuickFile（Rust 后端）+ Nginx HTTP 反向代理"
+            echo "- 外接存储：USB/UAS、ext4、VFAT、exFAT、NTFS3、F2FS、XFS"
             echo "- 防火墙：firewall4 + nftables"
             echo "- 无线：2.4GHz / 5GHz，默认 SSID 为 500/5，密码为 88888888"
             echo "- PPPoE：默认账号为占位符，首次启动不会自动配置拨号"
             echo "- NSS、无线和设备板级驱动：保留"
             echo
             echo "## 显式选择的主要软件包"
-            echo "- luci"
+            echo "- luci-nginx"
             echo "- luci-theme-argon"
+            echo "- luci-app-quickfile"
+            echo "- quickfile"
+            echo "- nginx-ssl / nginx-util / nginx-mod-luci / nginx-mod-ubus"
+            echo "- uwsgi / uwsgi-luci-support"
+            echo "- block-mount / ntfs3-mount / fuse-utils / usbutils / sgdisk / resize2fs"
             echo "- firewall4"
             echo "- nftables"
             echo "- nftables-json"
@@ -176,10 +183,13 @@ jobs:
             echo "- kmod-netlink-diag"
             echo "- kmod-inet-diag"
             echo "- kmod-tls"
+            echo "- kmod-usb-storage / kmod-usb-storage-uas / kmod-usb-storage-extras"
+            echo "- kmod-usb2 / kmod-usb3 / kmod-usb-dwc3 / kmod-usb-xhci-hcd / kmod-usb-ehci / kmod-usb-ohci"
+            echo "- kmod-fs-ext4 / kmod-fs-vfat / kmod-fs-exfat / kmod-fs-ntfs3 / kmod-fs-f2fs / kmod-fs-xfs"
             echo
             echo "## 精简说明"
             echo "- 仅预留 OpenClash 所需内核模块，不预装 OpenClash 本体"
-            echo "- 不预装 Docker、Dockerman、Podman、QuickFile、Nginx、QuickStart、易有云等非必要服务"
+            echo "- 不预装 Docker、Dockerman、Podman、OpenClash、QuickStart、易有云等非必要服务"
             echo "- 不额外预装第三方服务插件和可选应用"
             echo
             echo "注意：以上软件包列表为本分支显式选择项，不代表上游目标默认软件包的完整清单。内核模块必须与本次固件内核 ABI 匹配。"

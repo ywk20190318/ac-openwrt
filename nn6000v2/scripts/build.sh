@@ -70,7 +70,7 @@ grep -qx 'CONFIG_LUCI_LANG_zh_Hans=y' .config || {
 }
 echo "检查通过：已启用 APK 包管理器和 LuCI 简体中文语言。"
 
-# Validate every explicitly requested networking/kernel feature module.
+# Validate the explicitly requested networking and external-storage modules.
 REQUIRED_KMODS=(
     kmod-nft-tproxy
     kmod-tun
@@ -80,6 +80,21 @@ REQUIRED_KMODS=(
     kmod-netlink-diag
     kmod-inet-diag
     kmod-tls
+    kmod-usb-storage
+    kmod-usb-storage-uas
+    kmod-usb-storage-extras
+    kmod-usb2
+    kmod-usb3
+    kmod-usb-dwc3
+    kmod-usb-xhci-hcd
+    kmod-usb-ehci
+    kmod-usb-ohci
+    kmod-fs-ext4
+    kmod-fs-vfat
+    kmod-fs-exfat
+    kmod-fs-ntfs3
+    kmod-fs-f2fs
+    kmod-fs-xfs
 )
 for package in "${REQUIRED_KMODS[@]}"; do
     grep -qx "CONFIG_PACKAGE_${package}=y" .config || {
@@ -87,7 +102,7 @@ for package in "${REQUIRED_KMODS[@]}"; do
         exit 1
     }
 done
-echo "检查通过：8 个指定网络与内核功能模块均已选中。"
+echo "检查通过：网络功能与 USB/文件系统内核模块均已选中。"
 
 if [[ "$BUILD_MOD" == "debug" ]]; then
     echo "调试模式：配置准备完成，按要求跳过实际编译。"
@@ -136,7 +151,34 @@ for package in "${REQUIRED_KMODS[@]}"; do
         exit 1
     fi
 done
-echo "检查通过：最终固件清单包含全部 8 个指定内核模块。"
+echo "检查通过：最终固件清单包含全部网络、USB 与文件系统内核模块。"
+
+REQUIRED_PACKAGES=(
+    luci-nginx
+    luci-theme-argon
+    luci-app-quickfile
+    quickfile
+    nginx-ssl
+    nginx-util
+    nginx-mod-luci
+    nginx-mod-ubus
+    uwsgi
+    uwsgi-luci-support
+    block-mount
+    ntfs3-mount
+    fuse-utils
+    usbutils
+    sgdisk
+    resize2fs
+)
+for package in "${REQUIRED_PACKAGES[@]}"; do
+    if ! awk -v package="$package" '$1 == package { found=1 } END { exit !found }' "$MANIFEST_FILE"; then
+        echo "错误：最终固件软件包清单缺少必需组件：$package" >&2
+        exit 1
+    fi
+done
+echo "检查通过：QuickFile、Nginx 和磁盘管理基础工具均已进入最终固件。"
+
 if ! find "$FIRMWARE_DIR" -maxdepth 1 -type f | grep -q .; then
     echo "错误：编译流程结束，但未收集到任何固件产物。" >&2
     exit 1

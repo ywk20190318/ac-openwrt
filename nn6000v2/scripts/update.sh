@@ -38,6 +38,9 @@ main() {
     update_feeds
     install_feeds
 
+    # QuickFile 使用 Nginx 反向代理；设置 HTTP-only 配置后再写入首次启动默认项
+    set_nginx_default_config
+
     # 首次启动默认配置、温度显示、LAN 与 WiFi
     fix_default_set
     update_default_lan_addr
@@ -53,7 +56,7 @@ main() {
     remove_tweaked_packages
 
     echo "===== 精简脚本执行完成 ====="
-    echo "保留上游默认系统服务、NSS/无线/板级驱动及原版 LuCI；不额外安装第三方服务插件。防火墙使用 firewall4/nftables。"
+    echo "保留上游 NSS/无线/板级驱动；启用 APK、原版 LuCI（Nginx）、QuickFile、Argon、简体中文、USB 存储与常见文件系统；防火墙使用 firewall4/nftables。"
 }
 
 main "$@"

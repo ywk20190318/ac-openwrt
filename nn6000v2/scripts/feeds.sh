@@ -31,9 +31,11 @@ update_feeds() {
 install_feeds() {
     cd "$BUILD_DIR"
 
-    echo "===== 安装原版 LuCI collection ====="
+    echo "===== 安装 LuCI、Nginx 和 QuickFile ====="
     ./scripts/feeds update -i
     install_luci_base
+    install_nginx_packages
+    install_quickfile
 
-    echo "===== 完成：只安装原版 LuCI；不额外安装服务插件 ====="
+    echo "===== QuickFile、Nginx 和存储支持组件源码准备完成 ====="
 }

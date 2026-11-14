@@ -1,4 +1,30 @@
 #!/usr/bin/env bash
+set_nginx_default_config() {
+    local nginx_config="$BUILD_DIR/feeds/packages/net/nginx-util/files/nginx.config"
+
+    [[ -f "$nginx_config" ]] || {
+        echo "错误：找不到 Nginx UCI 配置模板：$nginx_config" >&2
+        return 1
+    }
+
+    # QuickFile uses Nginx as its reverse proxy. Keep LuCI and QuickFile on HTTP/80;
+    # do not generate a second HTTPS redirect listener.
+    cat > "$nginx_config" <<'EOF'
+config main 'global'
+        option uci_enable 'true'
+
+config server 'http_only'
+        list listen '80 default_server'
+        list listen '[::]:80 default_server'
+        option server_name '_lan'
+        list include 'restrict_locally'
+        list include 'conf.d/*.locations'
+        option access_log 'off; # logd openwrt'
+EOF
+
+    echo "✓ Nginx 已配置为 HTTP only，并加载 QuickFile locations"
+}
+
 fix_default_set() {
     local defaults_dir="$BUILD_DIR/package/base-files/files/etc/uci-defaults"
 
