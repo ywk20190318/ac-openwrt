@@ -72,21 +72,21 @@ jobs:
           set -Eeuo pipefail
           case "$KERNEL_PATCHVER" in
             *[!0-9.]*|'')
-              echo "Invalid KERNEL_PATCHVER: $KERNEL_PATCHVER" >&2
+              echo "内核版本参数无效：$KERNEL_PATCHVER" >&2
               exit 1
               ;;
           esac
           if [[ ! "$KERNEL_PATCHVER" =~ ^[0-9]+\.[0-9]+$ ]]; then
-            echo "Use major.minor format, for example 6.6 (not 6.6.122)." >&2
+            echo "请使用“主版本.次版本”格式，例如 6.6（不要填写 6.6.122）。" >&2
             exit 1
           fi
           MAKEFILE="action_build/target/linux/qualcommax/Makefile"
           test -f "$MAKEFILE" || {
-            echo "Missing target Makefile: $MAKEFILE" >&2
+            echo "错误：找不到目标 Makefile：$MAKEFILE" >&2
             exit 1
           }
           grep -qE '^KERNEL_PATCHVER[:?+]?=' "$MAKEFILE" || {
-            echo "KERNEL_PATCHVER not found in $MAKEFILE; refusing unsafe append." >&2
+            echo "错误：在 $MAKEFILE 中未找到 KERNEL_PATCHVER，已停止修改以避免错误追加。" >&2
             exit 1
           }
           sed -i -E "s/^KERNEL_PATCHVER[:?+]?=.*/KERNEL_PATCHVER:=${KERNEL_PATCHVER}/" "$MAKEFILE"
@@ -116,7 +116,7 @@ jobs:
           find firmware -maxdepth 1 -type f -printf '%f\n' | sort
           IMAGE_COUNT="$(find firmware -maxdepth 1 -type f \( -name '*.bin' -o -name '*.img' -o -name '*.itb' -o -name '*.ubi' -o -name '*.fip' -o -name '*.tar.gz' \) | wc -l)"
           if [[ "$IMAGE_COUNT" -lt 1 ]]; then
-            echo "No firmware image found in ./firmware" >&2
+            echo "错误：./firmware 目录中没有找到固件镜像。" >&2
             exit 1
           fi
           MANIFEST="$(find firmware -maxdepth 1 -type f -name '*.manifest' -print -quit)"
@@ -131,11 +131,11 @@ jobs:
       - name: 输出编译环境信息
         shell: bash
         run: |
-          echo "===== CPU ====="
+          echo "===== CPU 信息 ====="
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core' || true
-          echo "===== DISK ====="
+          echo "===== 磁盘空间 ====="
           df -h
-          echo "===== CCACHE ====="
+          echo "===== 编译缓存 ====="
           du -sh action_build/.ccache 2>/dev/null || true
 
       - name: 生成中文固件发布说明
