@@ -62,6 +62,35 @@
 
 普通 APK 软件包源与 kmods 源分开配置。系统从已安装的 kernel APK 元数据读取版本和 vermagic，并从设备读取实际 APK 架构；解析失败时停止生成仓库地址，不猜测 kmods 路径。普通软件包源可通过 APK_MIRROR 覆盖，内核模块源可通过 KMODS_MIRROR 单独覆盖。kmods 必须与当前固件内核 ABI 完全匹配，不能跨内核或跨固件混装。
 
+
+### 后期 APK 清单（按当前配置）
+
+当前配置共选择 **98 个**后期安装包（`=m`）。这些包不预装进固件；内核模块只能安装到 ABI 完全匹配的同一固件/内核上。清单由配置文件自动对应，后续调整配置时应同步更新本节。
+
+**nftables 与网络扩展（24）**
+
+`kmod-nft-offload`、`kmod-nft-bridge`、`kmod-nft-queue`、`kmod-nft-netdev`、`kmod-nf-ipt6`、`kmod-ip6tables`、`kmod-ip6tables-extra`、`kmod-ip6-tunnel`、`kmod-sit`、`kmod-gre`、`kmod-gre6`、`kmod-fou`、`kmod-fou6`、`kmod-ipsec6`、`kmod-ip6-vti`、`kmod-xfrm-interface`、`kmod-tcp-bbr`、`kmod-veth`、`kmod-bonding`、`kmod-dsa`、`kmod-netlink-diag`、`kmod-inet-diag`、`kmod-tls`、`kmod-tun`
+
+**文件系统（6）**
+
+`kmod-fs-exfat`、`kmod-fs-vfat`、`kmod-fs-ext4`、`kmod-fs-ntfs3`、`kmod-fs-cifs`、`kmod-fs-nfs`
+
+**USB 驱动及蜂窝网络（36）**
+
+`kmod-usb-acm`、`kmod-usb-ehci`、`kmod-usb-ohci`、`kmod-usb-serial-qualcomm`、`kmod-usb-serial-option`、`kmod-usb-serial-wwan`、`kmod-usb-storage`、`kmod-usb-storage-extras`、`kmod-usb-storage-uas`、`kmod-usb2`、`kmod-usb3`、`kmod-usb-dwc3`、`kmod-usb-xhci-hcd`、`kmod-usb-printer`、`kmod-usb-net`、`kmod-usb-net-cdc-ncm`、`kmod-usb-net-huawei-cdc-ncm`、`kmod-usb-net-cdc-ether`、`kmod-usb-net-qmi-wwan`、`uqmi`、`libqmi`、`luci-proto-qmi`、`umbim`、`libmbim`、`luci-proto-mbim`、`kmod-usb-net-cdc-mbim`、`kmod-usb-net-rndis`、`kmod-usb-net-rtl8150`、`kmod-usb-net-rtl8152`、`kmod-usb-net-asix`、`kmod-usb-net-asix-ax88179`、`kmod-usb-net-cdc-eem`、`kmod-usb-net-cdc-subset`、`kmod-usb-net-ipheth`、`kmod-usb-net-sierrawireless`、`usb-modeswitch`
+
+**WireGuard 与 LuCI 协议（4）**
+
+`luci-proto-relay`、`kmod-wireguard`、`wireguard-tools`、`luci-proto-wireguard`
+
+**命令行维护工具（22）**
+
+`rng-tools`、`blkid`、`htop`、`fuse-utils`、`ntfs3-mount`、`openssh-sftp-server`、`tcpdump`、`curl`、`wget`、`mtr`、`socat`、`iperf3`、`ethtool`、`sgdisk`、`openssl-util`、`resize2fs`、`qrencode`、`smartmontools-drivedb`、`usbutils`、`xz-utils`、`bash`、`ipset`
+
+**可选 LuCI 应用与主题（6）**
+
+`luci-app-quickfile`、`luci-app-mini-diskmanager`、`luci-app-hd-idle`、`luci-app-p910nd`、`luci-theme-argon`、`luci-app-argon-config`
+
 ## 3. 构建方式
 
 - GitHub Actions 仅支持手动触发（`workflow_dispatch`），不会因向 `main` 推送代码自动编译。
