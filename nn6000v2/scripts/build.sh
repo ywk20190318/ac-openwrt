@@ -113,6 +113,20 @@ find "$TARGET_DIR" -type f \( \
 \) -exec cp -f {} "$FIRMWARE_DIR/" \;
 
 rm -f "$FIRMWARE_DIR/Packages.manifest"
+
+# Verify the final firmware manifest, not just the requested Kconfig selections.
+MANIFEST_FILE="$(find "$FIRMWARE_DIR" -maxdepth 1 -type f -name '*.manifest' -print -quit)"
+if [[ -z "$MANIFEST_FILE" ]]; then
+    echo "ERROR: no firmware package manifest was produced; cannot verify OpenClash modules." >&2
+    exit 1
+fi
+for package in kmod-nft-tproxy kmod-tun; do
+    if ! awk -v package="$package" '$1 == package { found=1 } END { exit !found }' "$MANIFEST_FILE"; then
+        echo "ERROR: final firmware manifest does not contain required OpenClash package: $package" >&2
+        exit 1
+    fi
+done
+echo "Verified: final firmware manifest contains kmod-nft-tproxy and kmod-tun."
 if ! find "$FIRMWARE_DIR" -maxdepth 1 -type f | grep -q .; then
     echo "ERROR: build completed but no firmware artifacts were collected." >&2
     exit 1
