@@ -4,15 +4,25 @@ on:
   workflow_dispatch:
     inputs:
       kernel_patchver:
-        description: "可选：指定内核主次版本（例如 6.6）；留空则使用源码默认版本。"
+        description: "可选：指定内核主次版本（例如 6.6）；留空使用源码默认版本。"
         required: false
         default: ""
         type: string
       clean_ccache:
-        description: "是否清空并重新建立编译缓存；默认关闭以复用缓存、缩短编译时间。"
+        description: "跳过缓存恢复并重新建立缓存；默认关闭。"
         required: false
         default: false
         type: boolean
+      pppoe_username:
+        description: "可选：PPPoE 宽带账号；留空或填 - 则跳过。"
+        required: false
+        default: "-"
+        type: string
+      pppoe_password:
+        description: "可选：PPPoE 宽带密码；留空或填 - 则跳过。"
+        required: false
+        default: "-"
+        type: string
 
 permissions:
   actions: write
@@ -26,25 +36,30 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
-
     steps:
       - name: 检出设备构建脚本
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: 初始化编译环境
         shell: bash
         run: |
           set -Eeuo pipefail
+          df -h
           sudo bash -c 'bash <(curl -fsSL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
           sudo apt-get update
           sudo apt-get install -y dos2unix libfuse-dev gh
+          sudo apt-get autoremove -y --purge
+          sudo apt-get autoclean
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
           sudo timedatectl set-timezone Asia/Shanghai
+          df -h
 
       - name: 设置构建信息
         shell: bash
         run: |
           set -Eeuo pipefail
-          BUILD_DATE="$(date '+%y.%m.%d_%H.%M.%S')"
+          BUILD_DATE="$(TZ=Asia/Shanghai date '+%y.%m.%d_%H.%M.%S')"
           CONFIG_FILE="nn6000v2/configs/${DEVICE_MODEL}.ini"
           test -f "$CONFIG_FILE"
           BUILD_SRC="$(awk -F= '$1=="REPO_URL" {sub(/^[^=]*=/,""); print; exit}' "$CONFIG_FILE")"
@@ -55,6 +70,8 @@ jobs:
             echo "BUILD_SRC=$BUILD_SRC"
             echo "BUILD_BRANCH=$BUILD_BRANCH"
           } >> "$GITHUB_ENV"
+          echo "源码仓库：$BUILD_SRC"
+          echo "源码分支：$BUILD_BRANCH"
 
       - name: 准备并检出 ImmortalWrt 源码
         shell: bash
@@ -62,6 +79,8 @@ jobs:
           set -Eeuo pipefail
           chmod +x nn6000v2/scripts/*.sh
           ./nn6000v2/scripts/pre_clone_action.sh "$DEVICE_MODEL"
+          test -s repo_flag
+          test -d action_build
 
       - name: 应用可选内核版本
         if: ${{ inputs.kernel_patchver != '' }}
@@ -70,36 +89,67 @@ jobs:
           KERNEL_PATCHVER: ${{ inputs.kernel_patchver }}
         run: |
           set -Eeuo pipefail
-          case "$KERNEL_PATCHVER" in
-            *[!0-9.]*|'')
-              echo "内核版本参数无效：$KERNEL_PATCHVER" >&2
-              exit 1
-              ;;
-          esac
           if [[ ! "$KERNEL_PATCHVER" =~ ^[0-9]+\.[0-9]+$ ]]; then
-            echo "请使用“主版本.次版本”格式，例如 6.6（不要填写 6.6.122）。" >&2
+            echo "请使用主版本.次版本格式，例如 6.6。" >&2
             exit 1
           fi
           MAKEFILE="action_build/target/linux/qualcommax/Makefile"
-          test -f "$MAKEFILE" || {
-            echo "错误：找不到目标 Makefile：$MAKEFILE" >&2
-            exit 1
-          }
+          test -f "$MAKEFILE"
           grep -qE '^KERNEL_PATCHVER[:?+]?=' "$MAKEFILE" || {
-            echo "错误：在 $MAKEFILE 中未找到 KERNEL_PATCHVER，已停止修改以避免错误追加。" >&2
+            echo "未找到 KERNEL_PATCHVER，停止修改。" >&2
             exit 1
           }
-          sed -i -E "s/^KERNEL_PATCHVER[:?+]?=.*/KERNEL_PATCHVER:=${KERNEL_PATCHVER}/" "$MAKEFILE"
+          sed -i -E "s/^KERNEL_PATCHVER[:?+]?=.*/KERNEL_PATCHVER:=$KERNEL_PATCHVER/" "$MAKEFILE"
           grep -n '^KERNEL_PATCHVER' "$MAKEFILE"
 
-      - name: 恢复编译缓存
+      - name: 写入可选 PPPoE 配置
+        shell: bash
+        env:
+          PPPOE_USERNAME: ${{ inputs.pppoe_username }}
+          PPPOE_PASSWORD: ${{ inputs.pppoe_password }}
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import os, re, shlex
+          from pathlib import Path
+          path = Path("nn6000v2/patches/993_set_pppoe.sh")
+          content = path.read_text(encoding="utf-8")
+          for key in ("PPPOE_USERNAME", "PPPOE_PASSWORD"):
+              value = os.environ.get(key) or "-"
+              if "\n" in value or "\r" in value:
+                  raise SystemExit(f"{key} 不允许包含换行符")
+              if value == "-":
+                  continue
+              content, count = re.subn(
+                  rf"^{key}=.*$", f"{key}={shlex.quote(value)}",
+                  content, count=1, flags=re.MULTILINE
+              )
+              if count != 1:
+                  raise SystemExit(f"无法安全更新 {key}")
+          path.write_text(content, encoding="utf-8")
+          print("PPPoE 参数处理完成；账号密码不会输出到构建日志。")
+          PY
+
+      - name: 恢复编译依赖缓存
         if: ${{ !inputs.clean_ccache }}
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v5.0.4
         with:
-          path: action_build/.ccache
-          key: ${{ runner.os }}-nn6000v2-ccache-${{ hashFiles('repo_flag', 'nn6000v2/configs/kernel/link_nn6000v2_immwrt.config') }}-${{ github.run_id }}
+          path: |
+            action_build/.ccache
+            action_build/staging_dir
+          key: ${{ runner.os }}-nn6000v2-${{ hashFiles('repo_flag', 'nn6000v2/configs/kernel/link_nn6000v2_immwrt.config', 'nn6000v2/configs/kernel/nss.config') }}-${{ inputs.kernel_patchver || 'default' }}-${{ github.run_id }}
           restore-keys: |
-            ${{ runner.os }}-nn6000v2-ccache-${{ hashFiles('repo_flag', 'nn6000v2/configs/kernel/link_nn6000v2_immwrt.config') }}-
+            ${{ runner.os }}-nn6000v2-${{ hashFiles('repo_flag', 'nn6000v2/configs/kernel/link_nn6000v2_immwrt.config', 'nn6000v2/configs/kernel/nss.config') }}-${{ inputs.kernel_patchver || 'default' }}-
+            ${{ runner.os }}-nn6000v2-
+
+      - name: 刷新 staging 缓存时间戳
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -d action_build/staging_dir ]]; then
+            find action_build/staging_dir -type d -name stamp -not -path '*target*' -print0 |
+              while IFS= read -r -d '' dir; do find "$dir" -type f -exec touch {} +; done
+          fi
 
       - name: 编译 NN6000 V2 固件
         shell: bash
@@ -107,7 +157,7 @@ jobs:
           set -Eeuo pipefail
           ./nn6000v2/scripts/build.sh "$DEVICE_MODEL"
 
-      - name: 检查固件产物
+      - name: 检查固件产物和内核版本
         id: firmware
         shell: bash
         run: |
@@ -115,28 +165,32 @@ jobs:
           test -d firmware
           find firmware -maxdepth 1 -type f -printf '%f\n' | sort
           IMAGE_COUNT="$(find firmware -maxdepth 1 -type f \( -name '*.bin' -o -name '*.img' -o -name '*.itb' -o -name '*.ubi' -o -name '*.fip' -o -name '*.tar.gz' \) | wc -l)"
-          if [[ "$IMAGE_COUNT" -lt 1 ]]; then
-            echo "错误：./firmware 目录中没有找到固件镜像。" >&2
-            exit 1
-          fi
+          [[ "$IMAGE_COUNT" -gt 0 ]] || { echo "没有找到固件镜像。" >&2; exit 1; }
           MANIFEST="$(find firmware -maxdepth 1 -type f -name '*.manifest' -print -quit)"
-          if [[ -n "$MANIFEST" ]]; then
-            KVER="$(awk '$1=="kernel" {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.[0-9]+\.[0-9]+/) {print $i; exit}}' "$MANIFEST")"
-          fi
+          [[ -n "$MANIFEST" ]] || { echo "没有生成 manifest。" >&2; exit 1; }
+          KVER="$(awk '$1=="kernel" {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.[0-9]+\.[0-9]+/) {print $i; exit}}' "$MANIFEST")"
           KVER="${KVER:-unknown}"
           echo "KVER=$KVER" >> "$GITHUB_ENV"
           echo "IMAGE_COUNT=$IMAGE_COUNT" >> "$GITHUB_OUTPUT"
+          echo "内核版本：$KVER"
           du -sh firmware
 
+      - name: 保存编译依赖缓存
+        if: ${{ success() }}
+        uses: actions/cache/save@v5.0.4
+        with:
+          path: |
+            action_build/.ccache
+            action_build/staging_dir
+          key: ${{ runner.os }}-nn6000v2-${{ hashFiles('repo_flag', 'nn6000v2/configs/kernel/link_nn6000v2_immwrt.config', 'nn6000v2/configs/kernel/nss.config') }}-${{ inputs.kernel_patchver || 'default' }}-${{ github.run_id }}
+
       - name: 输出编译环境信息
+        if: always()
         shell: bash
         run: |
-          echo "===== CPU 信息 ====="
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core' || true
-          echo "===== 磁盘空间 ====="
           df -h
-          echo "===== 编译缓存 ====="
-          du -sh action_build/.ccache 2>/dev/null || true
+          du -sh action_build/.ccache action_build/staging_dir 2>/dev/null || true
 
       - name: 生成中文固件发布说明
         shell: bash
@@ -154,54 +208,49 @@ jobs:
             echo "## 系统配置"
             echo "- 管理地址：10.0.0.1"
             echo "- 包管理器：APK（不使用 OPKG）"
-            echo "- Web 管理：仅使用 Nginx（uHTTPd 及其模块不打包）+ 原版 LuCI + Argon + 简体中文语言"
+            echo "- Web 管理：仅使用 Nginx，uHTTPd 及其模块不打包"
+            echo "- LuCI：原版 LuCI + Argon + 简体中文"
             echo "- 文件管理：QuickFile（Rust 后端）+ Nginx HTTP 反向代理"
             echo "- 外接存储：USB/UAS、ext4、VFAT、exFAT、NTFS3、F2FS、XFS"
             echo "- 防火墙：firewall4 + nftables，默认启用 FullCone NAT（全局及所有启用 masquerade 的区域）"
             echo "- 无线：2.4GHz / 5GHz，默认 SSID 为 500/5，密码为 88888888"
-            echo "- PPPoE：默认账号为占位符，首次启动不会自动配置拨号"
+            echo "- PPPoE：未输入有效账号密码时保持未配置；输入后写入首次启动配置"
             echo "- NSS、无线和设备板级驱动：保留"
             echo
-            echo "## 显式选择的主要软件包"
-            echo "- luci-nginx"
-            echo "- luci-theme-argon"
-            echo "- luci-app-quickfile"
-            echo "- quickfile"
-            echo "- nginx-ssl / nginx-util / nginx-mod-luci / nginx-mod-ubus"
-            echo "- uwsgi / uwsgi-luci-support"
-            echo "- block-mount / ntfs3-mount / fuse-utils / usbutils / sgdisk / resize2fs"
-            echo "- firewall4"
-            echo "- nftables"
-            echo "- nftables-json"
+            echo "## 精简策略"
+            echo "- 保留 QuickFile、Nginx/uWSGI、Argon、磁盘管理基础工具和所选网络/存储内核模块"
+            echo "- 不预装 Docker、Dockerman、Podman、OpenClash、QuickStart、易有云及无关第三方应用"
             echo
-            echo "## 显式选择的内核模块包"
-            echo "- kmod-nft-tproxy（nftables TProxy）"
-            echo "- kmod-tun（TUN 虚拟网络设备）"
-            echo "- kmod-nft-fullcone"
-            echo "- kmod-nft-bridge"
-            echo "- kmod-tcp-bbr"
-            echo "- kmod-netlink-diag"
-            echo "- kmod-inet-diag"
-            echo "- kmod-tls"
-            echo "- kmod-usb-storage / kmod-usb-storage-uas / kmod-usb-storage-extras"
-            echo "- kmod-usb2 / kmod-usb3 / kmod-usb-dwc3 / kmod-usb-xhci-hcd / kmod-usb-ehci / kmod-usb-ohci"
-            echo "- kmod-fs-ext4 / kmod-fs-vfat / kmod-fs-exfat / kmod-fs-ntfs3 / kmod-fs-f2fs / kmod-fs-xfs"
-            echo
-            echo "## 精简说明"
-            echo "- 仅预留 OpenClash 所需内核模块，不预装 OpenClash 本体"
-            echo "- 不预装 Docker、Dockerman、Podman、OpenClash、QuickStart、易有云等非必要服务"
-            echo "- 不额外预装第三方服务插件和可选应用"
-            echo
-            echo "注意：以上软件包列表为本分支显式选择项，不代表上游目标默认软件包的完整清单。内核模块必须与本次固件内核 ABI 匹配。"
+            echo "注意：FullCone 只控制本机 NAT 行为，不能保证运营商 CGNAT、光猫或上级网络策略下实际获得 NAT1；最终软件包以本次 manifest 为准。"
           } > release_body.txt
 
       - name: 发布固件
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: nn6000v2-${{ env.BUILD_DATE }}
           name: NN6000V2-${{ env.BUILD_DATE }}
           body_path: release_body.txt
           files: firmware/*
           fail_on_unmatched_files: true
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 清理旧 Release（保留最近 10 个）
+        if: ${{ success() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          OLD_TAGS="$(gh release list --limit 100 --json tagName,createdAt --jq 'sort_by(.createdAt) | reverse | .[10:] | .[].tagName')"
+          if [[ -z "$OLD_TAGS" ]]; then
+            echo "Release 数量未超过 10 个，无需清理。"
+            exit 0
+          fi
+          while IFS= read -r tag; do
+            [[ -n "$tag" ]] || continue
+            echo "清理旧 Release：$tag"
+            gh release delete "$tag" --cleanup-tag --yes || true
+          done <<< "$OLD_TAGS"

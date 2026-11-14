@@ -17,7 +17,7 @@
 | 上游分支 | main（以设备 INI 配置为准） |
 | 设备配置 | nn6000v2/configs/kernel/link_nn6000v2_immwrt.config |
 | 构建脚本 | nn6000v2/scripts/build.sh |
-| Actions 编译页面 | [NN6000V2 Practical Minimal Build](https://github.com/ywk20190318/ac-openwrt/actions/workflows/nn6000v2_build.yml) |
+| Actions 编译页面 | [NN6000V2 Practical Minimal Build](https://github.com/ywk20190318/ac-openwrt/actions/workflows/main.yml) |
 
 本项目不是通用 IPQ60xx 固件配置。请勿将本分支镜像刷入其他型号设备。
 
@@ -32,8 +32,9 @@
 | 2.4GHz 信道 | 1 | HT20 |
 | 5GHz 信道 | 157 | HE80 |
 | 无线国家码 | US | 首次启动脚本设置；请按设备所在地法规确认 |
-| PPPoE | 默认不配置 | 账号和密码为占位符“-”，脚本会跳过，不会自动拨号 |
+| PPPoE | 默认不配置 | `main` 工作流可选输入账号和密码；未填写时跳过配置 |
 | 连接跟踪上限 | 65535 | 系统支持对应 sysctl 参数时应用 |
+| FullCone NAT | 默认启用 | 全局启用，并为所有开启 masquerade 的防火墙区域启用；不保证上级网络一定为 NAT1 |
 
 首次启动无线脚本仅在无线接口尚无有效加密配置时写入默认 SSID 和密码，避免覆盖已有有效无线配置。需要修改无线名称或密码时，请通过 LuCI 无线页面或 UCI 修改。
 
@@ -71,7 +72,7 @@ apk info
 | block-mount / ntfs3-mount / fuse-utils | 磁盘挂载和文件系统用户态工具 |
 | usbutils / sgdisk / resize2fs | USB 与磁盘分区、文件系统维护工具 |
 
-LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系统生成对应翻译子包；不是把隐藏翻译包当作普通 feed 包单独安装。主 Web 服务采用 luci-nginx，以满足 QuickFile 对 Nginx 反向代理的依赖；Nginx 默认仅监听 HTTP/80。Argon 仍作为默认主题。
+LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系统生成对应翻译子包；不是把隐藏翻译包当作普通 feed 包单独安装。主 Web 服务采用 luci-nginx，以满足 QuickFile 对 Nginx 反向代理的依赖；Nginx 默认仅监听 HTTP/80。uHTTPd 及其模块在配置和最终 manifest 中均设有禁入检查。Argon 仍作为默认主题。
 
 ### 3.3 QuickFile 与外接存储支持
 
@@ -156,9 +157,11 @@ QuickFile 上游包由 LuCI 前端和 Rust 后端组成，前端依赖 `luci-ngi
 | 输入项 | 建议值 | 说明 |
 |---|---|---|
 | kernel_patchver | 留空 | 使用上游源码默认内核版本；只有明确需要覆盖时才填写，例如 6.6 |
-| clean_ccache | false | 默认复用编译缓存，减少重复编译时间；仅在缓存异常或主动要求全量重编时设为 true |
+| clean_ccache | false | 默认恢复 ccache 和 staging_dir 缓存；设为 true 时跳过缓存恢复并重新建立缓存 |
+| pppoe_username | - | 可选：填写宽带账号；留空或填 `-` 则跳过 |
+| pppoe_password | - | 可选：填写宽带密码；留空或填 `-` 则跳过 |
 
-编译流程会执行设备配置检查、APK/中文语言检查、OpenClash 所需模块检查、固件构建和 manifest 检查。成功后在该次 Actions 运行对应的 Release 中查看固件文件和中文构建说明。
+工作流仅由 `workflow_dispatch` 手动触发，不会因 push 自动编译。编译流程会执行设备配置检查、APK/中文语言检查、Nginx-only 检查、所需网络/存储模块检查、固件构建和 manifest 检查；缓存覆盖 ccache 与 staging_dir。可选 PPPoE 参数只写入临时构建工作区，不会打印到日志。成功后在该次 Actions 运行对应的 Release 中查看固件文件和中文构建说明。
 
 ### 构建成功的判定
 
