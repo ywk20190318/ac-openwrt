@@ -7,13 +7,13 @@
 # ==================== WiFi 配置 ====================
 # 5G WiFi 设置
 WIFI_5G_SSID="500/5"
-WIFI_5G_KEY="147258369"
+WIFI_5G_KEY="88888888"
 WIFI_5G_CHANNEL=157
 WIFI_5G_TXPOWER=24
 
 # 2.4G WiFi 设置
 WIFI_2G_SSID="500/5"
-WIFI_2G_KEY="147258369"
+WIFI_2G_KEY="88888888"
 WIFI_2G_CHANNEL=auto
 WIFI_2G_TXPOWER=22
 
@@ -47,7 +47,7 @@ set wireless.radio${radio}.mu_beamformer='1'
 set wireless.radio${radio}.country='US'
 set wireless.radio${radio}.txpower="${txpower}"
 set wireless.radio${radio}.cell_density='0'
-set wireless.radio${radio}.disabled='1'
+set wireless.radio${radio}.disabled='0'
 set wireless.default_radio${radio}.ssid="${ssid}"
 set wireless.default_radio${radio}.encryption="${encryption}"
 set wireless.default_radio${radio}.key="${key}"
