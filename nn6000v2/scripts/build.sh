@@ -207,6 +207,12 @@ REQUIRED_KMODS=(
     kmod-usb-ohci
     kmod-fs-ext4
     kmod-fs-vfat
+    kmod-fs-msdos
+    kmod-nls-base
+    kmod-nls-utf8
+    kmod-nls-cp932
+    kmod-nls-cp936
+    kmod-nls-cp950
     kmod-fs-exfat
     kmod-fs-ntfs3
     kmod-fs-f2fs
@@ -234,6 +240,9 @@ REQUIRED_PACKAGES=(
     btrfs-progs
     lsblk
     ntfs-3g-utils
+    dosfstools
+    exfat-mkfs
+    exfat-fsck
     bash
     curl
     ca-bundle
@@ -262,7 +271,7 @@ for package in "${REQUIRED_PACKAGES[@]}"; do
         exit 1
     }
 done
-echo "检查通过：QuickFile、Nginx 和存储工具均已在配置中选中。"
+echo "检查通过：OpenClash、QuickFile、Diskman、Nginx 和存储工具均已在配置中选中。"
 
 if [[ "$BUILD_MOD" == "debug" ]]; then
     echo "调试模式：配置准备完成，按要求跳过实际编译。"
@@ -566,7 +575,7 @@ for package in "${REQUIRED_PACKAGES[@]}"; do
         exit 1
     fi
 done
-echo "检查通过：QuickFile、Nginx 和磁盘管理基础工具均已进入最终固件。"
+echo "检查通过：OpenClash、QuickFile、Diskman、Nginx 和磁盘管理基础工具均已进入最终固件。"
 
 if ! find "$FIRMWARE_DIR" -maxdepth 1 -type f | grep -q .; then
     echo "错误：编译流程结束，但未收集到任何固件产物。" >&2
