@@ -588,7 +588,7 @@ echo "Wi-Fi-enabled firmware copied to: $FIRMWARE_DIR"
         tcpdump mtr iperf3 ethtool htop \
         luci-app-quickfile luci-app-mini-diskmanager luci-app-hd-idle \
         luci-app-p910nd luci-theme-argon luci-app-argon-config; do
-        if ! grep -q "^CONFIG_PACKAGE_${package}=m$" "$config_path"; then
+        if ! grep -q "^CONFIG_PACKAGE_$package=m$" "$config_path"; then
             echo "Optional package must be built as a standalone APK (not embedded): $package" >&2
             return 1
         fi
@@ -596,7 +596,6 @@ echo "Wi-Fi-enabled firmware copied to: $FIRMWARE_DIR"
 
     echo "Docker exclusion and optional APK-only package checks passed."
 }
-
 verify_kernel_partition_size() {
     local image_mk="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
     [ -f "$image_mk" ] || { echo "Missing target image definition: $image_mk" >&2; return 1; }
