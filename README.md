@@ -107,7 +107,7 @@ FullCone NAT 已设置为首次启动默认启用：全局开启，并对所有 
 
 ### OpenClash 说明
 
-本固件配置预留并要求包含以下模块：
+本固件默认预装 OpenClash，并要求包含以下运行模块：
 
 - kmod-nft-tproxy
 - kmod-tun
@@ -152,8 +152,8 @@ OpenClash 本体从官方 `vernesong/OpenClash` 仓库固定提交源码并随�
 | nn6000v2/patches/991_custom_settings | 调整连接跟踪上限；检查并解除 Dropbear 的 DirectInterface 限制 |
 | nn6000v2/patches/992_set-wifi-uci.sh | 首次启动配置 2.4GHz / 5GHz 无线参数和默认 Wi-Fi |
 | nn6000v2/patches/993_set_pppoe.sh | PPPoE 账号为占位符时跳过；填写有效账号后才执行配置 |
-| nn6000v2/scripts/packages.sh | 安装 luci-nginx、Argon、Nginx/uWSGI，并固定版本拉取 QuickFile 源码 |
-| nn6000v2/scripts/feeds.sh | 更新源码默认 feeds；仅单独拉取 QuickFile，不全量安装第三方 feed |
+| nn6000v2/scripts/packages.sh | 准备 Nginx/uWSGI、QuickFile、OpenClash 和 Diskman 固定版本源码 |
+| nn6000v2/scripts/feeds.sh | 更新源码默认 feeds；单独拉取 QuickFile、OpenClash、Diskman，不全量安装其他第三方 feed |
 | nn6000v2/scripts/build.sh | 应用设备配置、执行 defconfig、编译、收集镜像并验证 manifest |
 
 ## 7. GitHub Actions 编译
@@ -175,7 +175,7 @@ OpenClash 本体从官方 `vernesong/OpenClash` 仓库固定提交源码并随�
 
 1. Actions 工作流最终状态为成功。
 2. 输出目录中存在目标设备固件镜像。
-3. 对应 manifest 中存在 QuickFile、Nginx、USB/文件系统模块，以及 kmod-nft-tproxy 和 kmod-tun。
+3. 对应 manifest 中存在 OpenClash、QuickFile、Diskman、Nginx、分区工具、USB/文件系统模块，以及 kmod-nft-tproxy、kmod-tun 和 kmod-nft-fullcone。
 4. 下载后核对镜像文件名、设备型号和构建记录。
 
 ## 8. 刷机与升级注意事项
