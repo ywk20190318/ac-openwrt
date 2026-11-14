@@ -28,4 +28,4 @@ fi
 	echo "$MIRROR/packages/$ARCH/telephony/packages.adb"
 } > /etc/apk/repositories.d/distfeeds.list
 
-echo "✓ APK 软件源已配置 (ZJU snapshots${kmods_dir:+, kmods $kmods_dir})"
+echo "✓ APK 软件源已配置 (Official ImmortalWrt snapshots${kmods_dir:+, kmods $kmods_dir})"
