@@ -28,7 +28,7 @@ jobs:
 
       - name: Fast source and package checks
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           for script in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do bash -n "$script"; done
           sh -n nn6000v2/patches/994_set_apk_repos
           CONFIG=nn6000v2/configs/link_nn6000v2_immwrt.config
@@ -41,7 +41,7 @@ jobs:
           grep -q 'verify_virtual_interface_packages' nn6000v2/scripts/build.sh
           grep -q 'verify_virtual_interface_kernel_config' nn6000v2/scripts/build.sh
           grep -q 'verify_core_kernel_filesystems' nn6000v2/scripts/build.sh
-          grep -Eq 'src-git[[:space:]]+video' nn6000v2/scripts/feeds.sh
+          grep -Fq 'src-git[[:space:]]+video' nn6000v2/scripts/feeds.sh
           grep -q 'luci-app-fwknopd' nn6000v2/scripts/feeds.sh
           if grep -q '^CONFIG_PACKAGE_kmod-fs-overlay=' "$CONFIG"; then
             echo "OverlayFS must be verified as a built-in kernel feature, not a kmod package."
