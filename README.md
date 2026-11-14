@@ -16,7 +16,6 @@
 | ------------ | ----------- | ---------------------------------------- |
 | **LAN IP**   | `10.0.0.1`  | (nn6000v2/scripts/update.sh) |
 | **WiFi 名称**  | `500/5`     | (nn6000v2/patches/992\_network\_config.sh) |
-| **WiFi 密码**  | `88888888` | 无线密码                                     |
 | **WiFi 状态**  | **启用**      | 首次启动自动启用 2.4G/5G 无线                                |
 | **Web 管理服务** | `nginx` | LuCI 由 Nginx 提供服务，移除 uhttpd |
 | **2.4G 信道** | `auto` | 自动选择信道 |
@@ -38,20 +37,17 @@
 | `luci-app-hd-idle` | 硬盘休眠 |
 ***
 
-### 2.3 已移除的 iStore 组件
+### 2.3 SONiC FullCone NAT
 
-以下 iStore 商店及其专用辅助包不再安装：
+- IPv4、IPv6 在防火墙常规设置中分别提供独立总开关。
+- 每个防火墙区域也分别提供 IPv4、IPv6 开关。
+- IPv6 FullCone 默认关闭；一个协议族开关不会联动另一个。
+- 使用 SONiC conntrack/NAT 补丁，集成到现有 nftables masquerade 路径，不依赖单独的 FullCone kmod 包。
+- 构建会先运行内核、libnftnl、nftables、firewall4 和 LuCI 的 prepare 阶段检查。
 
-- `luci-app-store`
-- `luci-app-istorex`
-- `taskd`
-- `luci-lib-taskd`
-- `luci-lib-xterm`
-- `luci-lib-ipkg`
+### 2.4 APK 软件源与内核 ABI
 
-Docker 管理相关组件保留；dockerd 使用上游官方 OpenWrt/ImmortalWrt 软件包，不依赖 iStoreOS fork。
-
-***
+普通 APK 软件包源与 kmods 源分开配置。系统从已安装的 kernel APK 元数据读取版本和 vermagic，并从设备读取实际 APK 架构；解析失败时停止生成仓库地址，不猜测 kmods 路径。普通软件包源可通过 APK_MIRROR 覆盖，内核模块源可通过 KMODS_MIRROR 单独覆盖。kmods 必须与当前固件内核 ABI 完全匹配，不能跨内核或跨固件混装。
 
 ## 3. 构建方式
 
