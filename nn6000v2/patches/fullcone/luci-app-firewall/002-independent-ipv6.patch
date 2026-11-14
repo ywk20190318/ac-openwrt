@@ -3,7 +3,7 @@ Subject: [PATCH] luci-app-firewall: add independent IPv6 FullCone switches
 
 --- a/htdocs/luci-static/resources/view/firewall/zones.js
 +++ b/htdocs/luci-static/resources/view/firewall/zones.js
-@@ -60,2 +60,8 @@
+@@ -62,2 +62,8 @@
  		o.optional = true;
  
 +		o = s.option(form.Flag, 'fullcone6', _('Fullcone NAT (IPv6)'),
@@ -12,7 +12,7 @@ Subject: [PATCH] luci-app-firewall: add independent IPv6 FullCone switches
 +		o.rmempty = true;
 +		o.optional = true;
 +
-@@ -188,2 +194,7 @@
+@@ -192,2 +198,7 @@
  		o.depends('masq', '1');
  
 +		o = s.taboption('general', form.Flag, 'fullcone6', _('Fullcone NAT (IPv6)'),
@@ -20,6 +20,6 @@ Subject: [PATCH] luci-app-firewall: add independent IPv6 FullCone switches
 +		o.editable = true;
 +		o.depends('masq6', '1');
 +
-@@ -307,2 +313,1 @@
+@@ -307,2 +318,1 @@
 -		o.depends('fullcone', '1');
  		o.modalonly = true;
