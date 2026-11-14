@@ -483,7 +483,7 @@ install_sonic_fullcone() {
 
     install -Dm644 "$patch_root/firewall4/004-independent-ipv6.patch" "$firewall4_dir/patches/004-independent-ipv6.patch"
     install -Dm644 "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.js" "$luci_dir/htdocs/luci-static/resources/tools/fullconenat-sonic.js"
-    install -Dm644 "$patch_root/luci-app-fullconenat-sonic/90-luci-app-fullconenat-sonic" "$luci_dir/root/etc/uci-defaults/90-luci-app-fullconenat-sonic"
+    install -Dm755 "$patch_root/luci-app-fullconenat-sonic/90-luci-app-fullconenat-sonic" "$luci_dir/root/etc/uci-defaults/90-luci-app-fullconenat-sonic"
     install -Dm644 "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.po" "$luci_dir/po/zh_Hans/fullconenat-sonic.po"
     install -Dm644 "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.pot" "$luci_dir/po/templates/fullconenat-sonic.pot"
 
