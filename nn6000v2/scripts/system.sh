@@ -447,50 +447,45 @@ install_sonic_fullcone() {
     local libnftnl_dir="$BUILD_DIR/package/libs/libnftnl"
     local nftables_dir="$BUILD_DIR/package/network/utils/nftables"
     local firewall4_dir="$BUILD_DIR/package/network/config/firewall4"
-    local luci_fw_dir="$BUILD_DIR/feeds/luci/applications/luci-app-firewall"
+    local backend_dir="$BUILD_DIR/package/network/utils/fullconenat-sonic"
+    local luci_dir="$BUILD_DIR/package/emortal/luci-app-fullconenat-sonic"
 
     for file in \
-        "$patch_root/kernel/984-add-sonic-fullcone-support.patch" \
-        "$patch_root/kernel/986-add-sonic-fullcone-to-nft.patch" \
-        "$patch_root/kernel/987-sonic-fullcone-fix-races-and-drops.patch" \
-        "$patch_root/libnftnl/001-libnftnl-add-fullcone-expression-support.patch" \
-        "$patch_root/nftables/002-nftables-add-fullcone-expression-support.patch" \
-        "$patch_root/nftables/003-nftables-handle-fullcone-in-json-parser-and-optimizer.patch" \
-        "$patch_root/firewall4/001-sonic-fullcone.patch" \
-        "$patch_root/firewall4/002-independent-ipv6.patch" \
-        "$patch_root/luci-app-firewall/001-add-fullcone-options.patch" \
-        "$patch_root/luci-app-firewall/002-independent-ipv6.patch"; do
-        [ -s "$file" ] || { echo "Missing SONiC FullCone patch: $file" >&2; return 1; }
+        "$kernel_dir/984-add-sonic-fullcone-support.patch" \
+        "$kernel_dir/986-add-sonic-fullcone-to-nft.patch" \
+        "$libnftnl_dir/patches/001-libnftnl-add-fullcone-expression-support.patch" \
+        "$nftables_dir/patches/002-nftables-add-fullcone-expression-support.patch" \
+        "$firewall4_dir/patches/001-sonic-fullcone.patch" \
+        "$firewall4_dir/patches/002-default-enable-fullcone.patch" \
+        "$firewall4_dir/patches/003-match-nat-leakage-address-family.patch" \
+        "$luci_dir/patches/001-integrate-firewall-zones.patch" \
+        "$luci_dir/patches/002-disable-routing-nat-offload.patch" \
+        "$patch_root/firewall4/004-independent-ipv6.patch" \
+        "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.js" \
+        "$patch_root/luci-app-fullconenat-sonic/90-luci-app-fullconenat-sonic" \
+        "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.po" \
+        "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.pot"; do
+        [ -s "$file" ] || { echo "Missing upstream SONiC Fullcone component: $file" >&2; return 1; }
     done
 
-    [ -d "$kernel_dir" ] || {
-        echo "Expected Linux 6.18 patch directory not found: $kernel_dir" >&2
+    [ -s "$backend_dir/Makefile" ] || {
+        echo "Upstream fullconenat-sonic backend package is missing." >&2
         return 1
     }
-    for dir in "$libnftnl_dir" "$nftables_dir" "$firewall4_dir" "$luci_fw_dir"; do
-        [ -d "$dir" ] || { echo "Required FullCone package/feed directory missing: $dir" >&2; return 1; }
-    done
+    grep -q 'CONFIG_NF_NAT_FULLCONE=y' "$backend_dir/Makefile" || {
+        echo "Upstream Fullcone package does not enable CONFIG_NF_NAT_FULLCONE." >&2
+        return 1
+    }
+    [ -s "$luci_dir/Makefile" ] || {
+        echo "Upstream luci-app-fullconenat-sonic package is missing." >&2
+        return 1
+    }
 
-    install -Dm644 "$patch_root/kernel/984-add-sonic-fullcone-support.patch" "$kernel_dir/984-add-sonic-fullcone-support.patch"
-    install -Dm644 "$patch_root/kernel/986-add-sonic-fullcone-to-nft.patch" "$kernel_dir/986-add-sonic-fullcone-to-nft.patch"
-    install -Dm644 "$patch_root/kernel/987-sonic-fullcone-fix-races-and-drops.patch" "$kernel_dir/987-sonic-fullcone-fix-races-and-drops.patch"
+    install -Dm644 "$patch_root/firewall4/004-independent-ipv6.patch" "$firewall4_dir/patches/004-independent-ipv6.patch"
+    install -Dm644 "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.js" "$luci_dir/htdocs/luci-static/resources/tools/fullconenat-sonic.js"
+    install -Dm644 "$patch_root/luci-app-fullconenat-sonic/90-luci-app-fullconenat-sonic" "$luci_dir/root/etc/uci-defaults/90-luci-app-fullconenat-sonic"
+    install -Dm644 "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.po" "$luci_dir/po/zh_Hans/fullconenat-sonic.po"
+    install -Dm644 "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.pot" "$luci_dir/po/templates/fullconenat-sonic.pot"
 
-    install -Dm644 "$patch_root/libnftnl/001-libnftnl-add-fullcone-expression-support.patch" "$libnftnl_dir/patches/001-libnftnl-add-fullcone-expression-support.patch"
-    install -Dm644 "$patch_root/nftables/002-nftables-add-fullcone-expression-support.patch" "$nftables_dir/patches/002-nftables-add-fullcone-expression-support.patch"
-    install -Dm644 "$patch_root/nftables/003-nftables-handle-fullcone-in-json-parser-and-optimizer.patch" "$nftables_dir/patches/003-nftables-handle-fullcone-in-json-parser-and-optimizer.patch"
-    install -Dm644 "$patch_root/firewall4/001-sonic-fullcone.patch" "$firewall4_dir/patches/001-sonic-fullcone.patch"
-    install -Dm644 "$patch_root/firewall4/002-independent-ipv6.patch" "$firewall4_dir/patches/002-independent-ipv6.patch"
-    install -Dm644 "$patch_root/luci-app-firewall/001-add-fullcone-options.patch" "$luci_fw_dir/patches/001-add-fullcone-options.patch"
-    install -Dm644 "$patch_root/luci-app-firewall/002-independent-ipv6.patch" "$luci_fw_dir/patches/002-independent-ipv6.patch"
-
-    if ! grep -q '^PKG_FIXUP:=.*autoreconf' "$libnftnl_dir/Makefile"; then
-        sed -i '/^include .*package.mk/i PKG_FIXUP:=autoreconf' "$libnftnl_dir/Makefile"
-    fi
-
-    local zh_po="$luci_fw_dir/po/zh_Hans/firewall.po"
-    if [ -f "$zh_po" ] && ! grep -q '^msgid "Fullcone NAT"$' "$zh_po"; then
-        cat "$patch_root/translations/zh_Hans.po" >> "$zh_po"
-    fi
-
-    echo "SONiC FullCone patches installed (independent IPv4/IPv6 gates)."
+    echo "Upstream SONiC Fullcone installed with independent IPv4/IPv6 switches."
 }
