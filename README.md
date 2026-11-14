@@ -1,6 +1,6 @@
 # Link NN6000 V2（IPQ60xx）ImmortalWrt 实用精简固件
 
-本分支用于构建 **Link NN6000 V2** 路由器固件。在保留 VIKINGYFY/ImmortalWrt 原有设备支持、NSS、无线和板级驱动的基础上，提供 APK 包管理器、原版 LuCI 简体中文界面、Argon 主题、firewall4/nftables，以及 OpenClash 运行所需的内核模块。
+本分支用于构建 **Link NN6000 V2** 路由器固件。在保留 VIKINGYFY/ImmortalWrt 原有设备支持、NSS、无线和板级驱动的基础上，提供 APK 包管理器、原版 LuCI 简体中文界面、Argon 主题、OpenClash、QuickFile、Diskman、firewall4/nftables 和完整网络/存储内核模块。
 
 > **状态说明：** 本仓库保存编译配置和构建脚本。本文描述的是预期构建配置；某个版本是否真正包含这些组件，必须以该次 GitHub Actions 编译结果、固件软件包清单（manifest）和设备实测为准。不能仅凭配置文件认定固件已经编译成功。
 
@@ -17,7 +17,7 @@
 | 上游分支 | main（以设备 INI 配置为准） |
 | 设备配置 | nn6000v2/configs/kernel/link_nn6000v2_immwrt.config |
 | 构建脚本 | nn6000v2/scripts/build.sh |
-| Actions 编译页面 | [NN6000V2 Practical Minimal Build](https://github.com/ywk20190318/ac-openwrt/actions/workflows/main.yml) |
+| Actions 编译页面 | [NN6000V2 Minimal + OpenClash + QuickFile + Diskman Build](https://github.com/ywk20190318/ac-openwrt/actions/workflows/main.yml) |
 
 本项目不是通用 IPQ60xx 固件配置。请勿将本分支镜像刷入其他型号设备。
 
