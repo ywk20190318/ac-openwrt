@@ -194,6 +194,8 @@ apk add 插件包名
 
 在仓库 Actions 中运行 NN6000 V2 构建工作流，或按现有脚本执行：
 
+建议先在 Actions 中将 **“仅运行源码 feeds、Kconfig 和设备配置预检”** 设为 `true`。该模式会完成源码准备、feeds 更新、`make defconfig` 和全部配置检查，但不会下载完整编译依赖或开始固件编译；预检通过后，再关闭该选项正式编译。
+
 ```sh
 ./nn6000v2/scripts/pre_clone_action.sh link_nn6000v2_immwrt
 ./nn6000v2/scripts/build.sh link_nn6000v2_immwrt
