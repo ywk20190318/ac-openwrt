@@ -117,14 +117,14 @@ verify_ipv6_packages_config() {
         return 1
     }
     for package in kmod-nf-nat6 kmod-nf-log6 kmod-nf-reject6; do
-        grep -q "^CONFIG_PACKAGE_\${package}=y$" "$config_path" || {
-            echo "Error: required IPv6 base package is missing: \${package}" >&2
+        grep -q "^CONFIG_PACKAGE_${package}=y$" "$config_path" || {
+            echo "Error: required IPv6 base package is missing: ${package}" >&2
             return 1
         }
     done
     for package in kmod-ip6tables kmod-ip6tables-extra kmod-ip6-tunnel kmod-sit kmod-gre kmod-gre6 kmod-fou kmod-fou6 kmod-ipsec6 kmod-ip6-vti; do
-        grep -q "^CONFIG_PACKAGE_\${package}=m$" "$config_path" || {
-            echo "Error: optional IPv6 APK package is missing or not modular: \${package}" >&2
+        grep -q "^CONFIG_PACKAGE_${package}=m$" "$config_path" || {
+            echo "Error: optional IPv6 APK package is missing or not modular: ${package}" >&2
             return 1
         }
     done
