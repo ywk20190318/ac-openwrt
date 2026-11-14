@@ -1,7 +1,7 @@
 #!/bin/sh
-# 配置 apk 软件源（使用浙江大学镜像 snapshots）
+# 配置 apk 软件源（使用 ImmortalWrt 官方 snapshots）
 
-MIRROR="https://mirror.zju.edu.cn/immortalwrt/snapshots"
+MIRROR="https://downloads.immortalwrt.org/snapshots"
 ARCH="aarch64_cortex-a53"
 TARGET="qualcommax/ipq60xx"
 
