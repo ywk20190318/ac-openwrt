@@ -65,11 +65,11 @@
 
 ### 后期 APK 清单（按当前配置）
 
-当前配置共选择 **98 个**后期安装包（`=m`）。这些包不预装进固件；内核模块只能安装到 ABI 完全匹配的同一固件/内核上。清单由配置文件自动对应，后续调整配置时应同步更新本节。
+当前配置共选择 **96 个**后期安装包（`=m`）。这些包不预装进固件；内核模块只能安装到 ABI 完全匹配的同一固件/内核上。清单由配置文件自动对应，后续调整配置时应同步更新本节。
 
 **nftables 与网络扩展（24）**
 
-`kmod-nft-offload`、`kmod-nft-bridge`、`kmod-nft-queue`、`kmod-nft-netdev`、`kmod-nf-ipt6`、`kmod-ip6tables`、`kmod-ip6tables-extra`、`kmod-ip6-tunnel`、`kmod-sit`、`kmod-gre`、`kmod-gre6`、`kmod-fou`、`kmod-fou6`、`kmod-ipsec6`、`kmod-ip6-vti`、`kmod-xfrm-interface`、`kmod-tcp-bbr`、`kmod-veth`、`kmod-bonding`、`kmod-dsa`、`kmod-netlink-diag`、`kmod-inet-diag`、`kmod-tls`、`kmod-tun`
+`kmod-nft-offload`、`kmod-nft-bridge`、`kmod-nft-queue`、`kmod-nft-netdev`、`kmod-nf-ipt6`、`kmod-ip6tables`、`kmod-ip6tables-extra`、`kmod-ip6-tunnel`、`kmod-sit`、`kmod-fou`、`kmod-fou6`、`kmod-ipsec6`、`kmod-ip6-vti`、`kmod-xfrm-interface`、`kmod-tcp-bbr`、`kmod-veth`、`kmod-bonding`、`kmod-dsa`、`kmod-netlink-diag`、`kmod-inet-diag`、`kmod-tls`、`kmod-tun`
 
 **文件系统（6）**
 
