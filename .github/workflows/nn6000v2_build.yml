@@ -88,7 +88,7 @@ jobs:
           KERNEL_PATCHVER: ${{ inputs.kernel_patchver }}
         run: |
           set -Eeuo pipefail
-          if [[ ! "$KERNEL_PATCHVER" =~ ^[0-9]+\\.[0-9]+$ ]]; then
+          if [[ ! "$KERNEL_PATCHVER" =~ ^[0-9]+\.[0-9]+$ ]]; then
             echo "请使用“主版本.次版本”格式，例如 6.6（不要填写 6.6.122）。" >&2
             exit 1
           fi
