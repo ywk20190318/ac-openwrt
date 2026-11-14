@@ -3,7 +3,7 @@
 ## 1. 项目信息
 
 - **源码来源**：[VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt.git)
-- **设备支持**：Link\_NN6000V2，内核分区 12m（仅构建带 WiFi 驱动的固件版本）
+- **设备支持**：Link\_NN6000V2，内核分区 12 MiB（仅构建带 WiFi 驱动的固件版本）
 - **固件发布**：[点击下载](https://github.com/wzdddyy/Link_NN6000V2/releases/latest)
 
 ***
@@ -16,6 +16,7 @@
 | ------------ | ----------- | ---------------------------------------- |
 | **LAN IP**   | `10.0.0.1`  | (nn6000v2/scripts/update.sh) |
 | **WiFi 名称**  | `500/5`     | (nn6000v2/patches/992\_network\_config.sh) |
+| **WiFi 密码**  | `88888888` | 2.4G/5G 默认无线密码 |
 | **WiFi 状态**  | **启用**      | 首次启动自动启用 2.4G/5G 无线                                |
 | **Web 管理服务** | `nginx` | LuCI 由 Nginx 提供服务，移除 uhttpd |
 | **2.4G 信道** | `auto` | 自动选择信道 |
