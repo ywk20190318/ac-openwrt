@@ -41,6 +41,7 @@ jobs:
           grep -q 'verify_virtual_interface_packages' nn6000v2/scripts/build.sh
           grep -q 'verify_virtual_interface_kernel_config' nn6000v2/scripts/build.sh
           grep -q 'verify_core_kernel_filesystems' nn6000v2/scripts/build.sh
+          grep -q 'disable_firewall4_nft_offload_dependency' nn6000v2/scripts/build.sh
           grep -Fq 'src-git[[:space:]]+video' nn6000v2/scripts/feeds.sh
           grep -q 'luci-app-fwknopd' nn6000v2/scripts/feeds.sh
           if grep -q '^CONFIG_PACKAGE_kmod-fs-overlay=' "$CONFIG"; then
