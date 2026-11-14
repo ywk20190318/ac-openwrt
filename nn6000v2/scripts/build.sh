@@ -453,6 +453,15 @@ fi
 make download -j$(($(nproc) * 2))
 make -j$(($(nproc) + 1)) || make -j1 V=s
 
+# Verify the actual built image manifests contain none of the unwanted virtual-device providers.
+while IFS= read -r manifest; do
+    if grep -Eiq '^(docker|dockerd|luci-app-dockerman|luci-lib-docker|kmod-dummy|kmod-gre|kmod-gre6|kmod-qca-nss-drv-gre|kmod-qca-nss-drv-eogremgr)[[:space:]]' "$manifest"; then
+        echo "Forbidden Docker/Dummy/GRE package found in image manifest: $manifest" >&2
+        grep -Ein '^(docker|dockerd|luci-app-dockerman|luci-lib-docker|kmod-dummy|kmod-gre|kmod-gre6|kmod-qca-nss-drv-gre|kmod-qca-nss-drv-eogremgr)[[:space:]]' "$manifest" >&2
+        exit 1
+    fi
+done < <(find "$TARGET_DIR" -type f -name '*.manifest' -print)
+
 # Publish only the Wi-Fi-enabled build.
 FIRMWARE_DIR="$BASE_PATH/../firmware"
 \rm -rf "$FIRMWARE_DIR"
