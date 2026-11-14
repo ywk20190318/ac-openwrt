@@ -67,6 +67,8 @@ apk info
 | nftables | nftables 用户态工具 |
 | nftables-json | nftables JSON 输出支持 |
 | luci-app-quickfile / quickfile | QuickFile Web 文件管理器及 Rust 后端 |
+| luci-app-openclash | OpenClash 代理管理界面；依赖 Firewall4/nftables、TUN 和相关用户态工具 |
+| luci-app-diskman / parted | LuCI 磁盘分区管理、分区格式化与磁盘信息查看 |
 | nginx-ssl / nginx-util / nginx-mod-luci / nginx-mod-ubus | QuickFile 所需的 Nginx 反向代理和 LuCI 接入组件 |
 | uwsgi / uwsgi-luci-support | Nginx 运行 LuCI 所需组件 |
 | block-mount / ntfs3-mount / fuse-utils | 磁盘挂载和文件系统用户态工具 |
@@ -74,9 +76,9 @@ apk info
 
 LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系统生成对应翻译子包；不是把隐藏翻译包当作普通 feed 包单独安装。主 Web 服务采用 luci-nginx，以满足 QuickFile 对 Nginx 反向代理的依赖；Nginx 默认仅监听 HTTP/80。uHTTPd 及其模块在配置和最终 manifest 中均设有禁入检查。Argon 仍作为默认主题。
 
-### 3.3 QuickFile 与外接存储支持
+### 3.3 分区管理、QuickFile 与外接存储支持
 
-QuickFile 上游包由 LuCI 前端和 Rust 后端组成，前端依赖 `luci-nginx` 与 `quickfile`；上游说明明确要求 Nginx 反向代理。因此本次不是单独塞入一个 LuCI 插件，而是同时编译 Nginx、uWSGI 和 LuCI-Nginx 运行组件。QuickFile 源码固定到上游提交 `ef2ca5d16ad1156539930d8763c3069f6ac4eb12`，避免每次构建自动漂移。
+分区管理使用 `luci-app-diskman`，并编入 `parted`、`smartmontools`、`blkid`、`e2fsprogs` 等基础工具；Btrfs、NTFS 等可选功能按配置启用。Diskman 可执行分区和格式化操作，使用前务必确认磁盘设备，避免误操作数据。\n\nQuickFile 上游包由 LuCI 前端和 Rust 后端组成，前端依赖 `luci-nginx` 与 `quickfile`；上游说明明确要求 Nginx 反向代理。因此本次不是单独塞入一个 LuCI 插件，而是同时编译 Nginx、uWSGI 和 LuCI-Nginx 运行组件。QuickFile 源码固定到上游提交 `ef2ca5d16ad1156539930d8763c3069f6ac4eb12`，避免每次构建自动漂移。
 
 外接磁盘支持包含 USB mass-storage/UAS、USB2/USB3 主机控制器，以及 ext4、FAT/VFAT、exFAT、NTFS3、F2FS、XFS 文件系统模块。另编入 block-mount、NTFS3 挂载工具、USB 识别和分区/文件系统维护工具。是否自动挂载仍由运行时挂载配置决定；编入驱动不等于自动格式化或改动磁盘。
 
@@ -110,7 +112,7 @@ FullCone NAT 已设置为首次启动默认启用：全局开启，并对所有 
 - kmod-nft-tproxy
 - kmod-tun
 
-**这不代表固件已经预装 OpenClash。** OpenClash 本体不在当前精简预装列表中。刷入新固件后，只有在软件源提供与当前固件匹配的版本时，才可再通过 APK 安装 OpenClash。
+OpenClash 本体从官方 `vernesong/OpenClash` 仓库固定提交源码并随固件编译；相关用户态依赖一并选择。首次使用仍需在 OpenClash 页面下载 Mihomo 内核并导入配置。
 
 构建脚本会在 make defconfig 后检查上述网络、USB 和文件系统模块是否仍被选中，并在编译完成后检查最终固件 manifest 是否逐一包含所有指定模块。任一检查失败，构建流程应报错退出，避免把缺少模块的镜像当作合格成品发布。
 
@@ -134,9 +136,9 @@ FullCone NAT 已设置为首次启动默认启用：全局开启，并对所有 
 
 ### 不预装
 
-以下应用或服务不作为本分支默认预装内容：
+以下应用或服务不作为本分支默认预装内容（OpenClash、QuickFile、Diskman 除外，三者均默认内置）：
 
-- OpenClash 本体及其他代理客户端。
+- 其他代理客户端（OpenClash 已默认预装）。
 - Docker、Dockerman、Podman。
 - QuickStart、易有云等非必要服务。QuickFile 与其必需的 Nginx 组件现已纳入本次固件。
 - 额外的第三方服务插件、可选应用和存储工具。
@@ -165,7 +167,7 @@ FullCone NAT 已设置为首次启动默认启用：全局开启，并对所有 
 | pppoe_username | - | 可选：填写宽带账号；留空或填 `-` 则跳过 |
 | pppoe_password | - | 可选：填写宽带密码；留空或填 `-` 则跳过 |
 
-工作流仅由 `workflow_dispatch` 手动触发，不会因 push 自动编译。编译流程会执行设备配置检查、APK/中文语言检查、Nginx-only 检查、所需网络/存储模块检查、固件构建和 manifest 检查；缓存覆盖 ccache 与 staging_dir。可选 PPPoE 参数只写入临时构建工作区，不会打印到日志。成功后在该次 Actions 运行对应的 Release 中查看固件文件和中文构建说明。
+工作流仅由 `workflow_dispatch` 手动触发，不会因 push 自动编译。编译流程会执行设备配置检查、APK/中文语言检查、Nginx-only 检查、OpenClash/QuickFile/Diskman 软件包检查、所需网络/存储模块检查、固件构建和 manifest 检查；缓存覆盖 ccache 与 staging_dir。可选 PPPoE 参数只写入临时构建工作区，不会打印到日志。成功后在该次 Actions 运行对应的 Release 中查看固件文件和中文构建说明。
 
 ### 构建成功的判定
 
