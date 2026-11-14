@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 install_luci_base() {
-    echo "安装 ImmortalWrt 原版 LuCI collection..."
+    echo "正在安装 ImmortalWrt 原版 LuCI 管理界面集合..."
     ./scripts/feeds install -p luci -f luci
     ./scripts/feeds install -p luci -f luci-theme-argon
 
@@ -10,7 +10,7 @@ install_luci_base() {
     # Enable zh_Hans through CONFIG_LUCI_LANG_zh_Hans in the device config;
     # do not try to install luci-i18n-base-zh-cn as a normal feed package here.
     if [[ ! -e "$BUILD_DIR/package/feeds/luci/luci" ]]; then
-        echo "错误：LuCI collection 未正确链接到 package/feeds/luci/luci" >&2
+        echo "错误：LuCI 管理界面集合未正确链接到 package/feeds/luci/luci" >&2
         return 1
     fi
 }
