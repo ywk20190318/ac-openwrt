@@ -76,6 +76,10 @@ jobs:
           test -s nn6000v2/patches/991_custom_settings
           test -s nn6000v2/patches/992_set-wifi-uci.sh
           test -s nn6000v2/patches/nss_diag.sh
+          for patch in nn6000v2/patches/991_custom_settings nn6000v2/patches/992_set-wifi-uci.sh nn6000v2/patches/994_set_luci_zh_cn nn6000v2/patches/995_set_apk_mirror; do
+            sh -n "$patch"
+            echo "OK: $patch"
+          done
           grep -qx 'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_link_nn6000-v2=y' "nn6000v2/configs/kernel/${DEVICE_MODEL}.config"
           echo "静态预检通过。"
 
