@@ -1,0 +1,25 @@
+From: ac-openwrt integration
+Subject: [PATCH] luci-app-firewall: add independent IPv6 FullCone switches
+
+--- a/htdocs/luci-static/resources/view/firewall/zones.js
++++ b/htdocs/luci-static/resources/view/firewall/zones.js
+@@ -60,2 +60,8 @@
+ 		o.optional = true;
+ 
++		o = s.option(form.Flag, 'fullcone6', _('Fullcone NAT (IPv6)'),
++			_('Independent global gate for IPv6 SONiC-style fullcone NAT.'));
++		o.default = '0';
++		o.rmempty = true;
++		o.optional = true;
++
+@@ -188,2 +194,8 @@
+ 		o.depends('masq', '1');
+ 
++		o = s.taboption('general', form.Flag, 'fullcone6', _('Fullcone NAT (IPv6)'),
++			_('Enable IPv6 fullcone NAT for this zone. Requires the independent IPv6 Fullcone NAT gate in General Settings.'));
++		o.editable = true;
++		o.depends('masq6', '1');
++
+@@ -307,2 +313,1 @@
+-		o.depends('fullcone', '1');
+ 		o.modalonly = true;
