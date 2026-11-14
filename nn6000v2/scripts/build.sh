@@ -29,6 +29,27 @@ COMMIT_HASH="${COMMIT_HASH:-none}"
 # Keep the existing modular update pipeline and its package/system customizations.
 "$SCRIPT_DIR/update.sh" "$REPO_URL" "$REPO_BRANCH" "$BUILD_DIR" "$COMMIT_HASH"
 
+# Apply the optional kernel version only after update.sh has reset/pulled source.
+KERNEL_PATCHVER="${KERNEL_PATCHVER:-}"
+if [[ -n "$KERNEL_PATCHVER" ]]; then
+    if [[ ! "$KERNEL_PATCHVER" =~ ^[0-9]+\\.[0-9]+$ ]]; then
+        echo "错误：KERNEL_PATCHVER 必须使用主版本.次版本格式，例如 6.6。" >&2
+        exit 1
+    fi
+    KERNEL_MAKEFILE="$BUILD_DIR/target/linux/qualcommax/Makefile"
+    [[ -f "$KERNEL_MAKEFILE" ]] || {
+        echo "错误：找不到目标 Makefile：$KERNEL_MAKEFILE" >&2
+        exit 1
+    }
+    grep -qE '^KERNEL_PATCHVER[:?+]?=' "$KERNEL_MAKEFILE" || {
+        echo "错误：未找到 KERNEL_PATCHVER，停止修改。" >&2
+        exit 1
+    }
+    sed -i -E "s/^KERNEL_PATCHVER[:?+]?=.*/KERNEL_PATCHVER:=$KERNEL_PATCHVER/" "$KERNEL_MAKEFILE"
+    grep -n '^KERNEL_PATCHVER' "$KERNEL_MAKEFILE"
+fi
+
+
 apply_config() {
     cp -f "$CONFIG_FILE" "$BUILD_DIR/.config"
     if grep -qE 'CONFIG_TARGET_qualcommax_ipq60xx=y|CONFIG_TARGET_qualcommax_ipq807x=y' "$BUILD_DIR/.config" &&
