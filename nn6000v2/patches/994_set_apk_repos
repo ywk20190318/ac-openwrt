@@ -1,31 +1,69 @@
 #!/bin/sh
-# 配置 apk 软件源（使用 ImmortalWrt 官方 snapshots）
+# Keep userspace APK repositories separate from kernel-module repositories.
+# kmods are generated from the exact kernel package version installed here.
+set -eu
 
-MIRROR="https://downloads.immortalwrt.org/snapshots"
-ARCH="aarch64_cortex-a53"
+APK_MIRROR="\${APK_MIRROR:-https://downloads.immortalwrt.org/snapshots}"
+KMODS_MIRROR="\${KMODS_MIRROR:-https://downloads.immortalwrt.org/snapshots}"
 TARGET="qualcommax/ipq60xx"
+DB="/lib/apk/db/installed"
 
-# 从已安装的 kernel 包版本还原 kmods 目录名:
-# 包版本格式 <内核版本>~<vermagic>-r<发行号>
-# kmods 目录格式 <内核版本>-<发行号>-<vermagic>
-KV=$(awk '/^P:kernel$/{f=1} f&&/^V:/{print substr($0,3); exit}' /lib/apk/db/installed 2>/dev/null)
-if [ -n "$KV" ]; then
-	ver=${KV%%~*}
-	tail=${KV#*~}
-	magic=${tail%-r*}
-	rel=${tail##*-r}
-	kmods_dir="$ver-$rel-$magic"
+fail() {
+    echo "APK repository setup failed: $*" >&2
+    exit 1
+}
+
+[ -r "$DB" ] || fail "installed package database is missing"
+KV=$(awk '
+    /^P:kernel$/ { in_kernel=1; next }
+    /^P:/ { if (in_kernel) exit }
+    in_kernel && /^V:/ { sub(/^V:/, ""); print; exit }
+' "$DB")
+[ -n "$KV" ] || fail "cannot read the installed kernel package version"
+
+case "$KV" in
+    *~*-r*) ;;
+    *) fail "unrecognized kernel package version format: $KV" ;;
+esac
+ver="\${KV%%~*}"
+tail="\${KV#*~}"
+magic="\${tail%-r*}"
+rel="\${tail##*-r}"
+[ -n "$ver" ] && [ -n "$magic" ] && [ -n "$rel" ] || fail "kernel metadata is incomplete"
+case "$ver$magic$rel" in
+    *[!A-Za-z0-9._+-]*) fail "kernel metadata contains unsafe characters" ;;
+esac
+case "$rel" in
+    *[!0-9]*) fail "kernel package release is not numeric" ;;
+esac
+
+ARCH=""
+if command -v apk >/dev/null 2>&1; then
+    ARCH=$(apk --print-arch 2>/dev/null || true)
 fi
+if [ -z "$ARCH" ] && [ -r /etc/apk/arch ]; then
+    ARCH=$(sed -n '1{s/[[:space:]]//g;p;}' /etc/apk/arch)
+fi
+[ -n "$ARCH" ] || fail "cannot determine the active APK architecture"
+case "$ARCH" in
+    *[!A-Za-z0-9._+-]*) fail "APK architecture contains unsafe characters: $ARCH" ;;
+esac
 
-# 覆盖自动生成的 distfeeds.list（sysupgrade 后会重建，本脚本随之重跑）
+kmods_dir="$ver-$rel-$magic"
+mkdir -p /etc/apk/repositories.d
+tmp=$(mktemp /etc/apk/repositories.d/distfeeds.list.XXXXXX)
+trap 'rm -f "$tmp"' EXIT HUP INT TERM
 {
-	echo "$MIRROR/targets/$TARGET/packages/packages.adb"
-	[ -n "$kmods_dir" ] && echo "$MIRROR/targets/$TARGET/kmods/$kmods_dir/packages.adb"
-	echo "$MIRROR/packages/$ARCH/base/packages.adb"
-	echo "$MIRROR/packages/$ARCH/luci/packages.adb"
-	echo "$MIRROR/packages/$ARCH/packages/packages.adb"
-	echo "$MIRROR/packages/$ARCH/routing/packages.adb"
-	echo "$MIRROR/packages/$ARCH/telephony/packages.adb"
-} > /etc/apk/repositories.d/distfeeds.list
+    echo "$KMODS_MIRROR/targets/$TARGET/kmods/$kmods_dir/packages.adb"
+    echo "$APK_MIRROR/targets/$TARGET/packages/packages.adb"
+    echo "$APK_MIRROR/packages/$ARCH/base/packages.adb"
+    echo "$APK_MIRROR/packages/$ARCH/luci/packages.adb"
+    echo "$APK_MIRROR/packages/$ARCH/packages/packages.adb"
+    echo "$APK_MIRROR/packages/$ARCH/routing/packages.adb"
+    echo "$APK_MIRROR/packages/$ARCH/telephony/packages.adb"
+} > "$tmp"
 
-echo "✓ APK 软件源已配置 (Official ImmortalWrt snapshots${kmods_dir:+, kmods $kmods_dir})"
+[ -s "$tmp" ] || fail "repository list generation produced an empty file"
+mv -f "$tmp" /etc/apk/repositories.d/distfeeds.list
+trap - EXIT HUP INT TERM
+echo "APK repositories configured (arch=$ARCH, exact kmods=$kmods_dir)"
