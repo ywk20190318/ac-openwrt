@@ -17,15 +17,15 @@ update_golang() {
 
 clone_packages() {
     local name="$1" repo_url="$2" target_dir="$3"
-    local sparse_pattern="\${4:-}" pre_cmd="\${5:-}" post_cmd="\${6:-}"
-    local move_from="\${7:-}" move_to="\${8:-}" branch="\${9:-}"
+    local sparse_pattern="${4:-}" pre_cmd="${5:-}" post_cmd="${6:-}"
+    local move_from="${7:-}" move_to="${8:-}" branch="${9:-}"
     local clone_args=()
     [ -z "$branch" ] || clone_args=(-b "$branch")
 
     [ -z "$pre_cmd" ] || (cd "$BUILD_DIR" && eval "$pre_cmd")
     rm -rf "$target_dir"
     if [ -n "$sparse_pattern" ]; then
-        git clone --filter=blob:none --no-checkout "\${clone_args[@]}" "$repo_url" "$target_dir"
+        git clone --filter=blob:none --no-checkout "${clone_args[@]}" "$repo_url" "$target_dir"
         (
             cd "$target_dir"
             git sparse-checkout init --cone
@@ -38,7 +38,7 @@ clone_packages() {
             mv "$move_from" "$move_to"
         fi
     else
-        git clone --depth=1 "\${clone_args[@]}" "$repo_url" "$target_dir"
+        git clone --depth=1 "${clone_args[@]}" "$repo_url" "$target_dir"
     fi
     [ -z "$post_cmd" ] || (cd "$BUILD_DIR" && eval "$post_cmd")
     echo "✓ $name 克隆完成"
@@ -63,7 +63,7 @@ clone_quickfile() {
     local target="$OPENWRT_PACKAGES_DIR/luci-app-quickfile"
     local temp_dir="$OPENWRT_PACKAGES_DIR/quickfile-temp"
     clone_packages "luci-app-quickfile" \
-        "\${GITHUB_BASE}sbwml/luci-app-quickfile.git" \
+        "${GITHUB_BASE}sbwml/luci-app-quickfile.git" \
         "$temp_dir" "luci-app-quickfile quickfile" "" \
         "mkdir -p \"$target\" && rm -rf \"$target/luci-app-quickfile\" \"$target/quickfile\" && mv \"$temp_dir/luci-app-quickfile\" \"$temp_dir/quickfile\" \"$target/\""
     rm -rf "$temp_dir"
@@ -72,7 +72,7 @@ clone_quickfile() {
 clone_mini_diskmanager() {
     local temp_dir="$OPENWRT_PACKAGES_DIR/mini-diskmanager-temp"
     clone_packages "luci-app-mini-diskmanager" \
-        "\${GITHUB_BASE}4IceG/luci-app-mini-diskmanager.git" \
+        "${GITHUB_BASE}4IceG/luci-app-mini-diskmanager.git" \
         "$temp_dir" "luci-app-mini-diskmanager" "" "" \
         "$temp_dir/luci-app-mini-diskmanager" \
         "$OPENWRT_PACKAGES_DIR/luci-app-mini-diskmanager"
@@ -82,7 +82,7 @@ clone_mini_diskmanager() {
 _sync_luci_lib_docker() {
     local temp_dir="$OPENWRT_PACKAGES_DIR/luci-lib-docker-temp"
     clone_packages "luci-lib-docker" \
-        "\${GITHUB_BASE}lisaac/luci-app-dockerman.git" \
+        "${GITHUB_BASE}lisaac/luci-app-dockerman.git" \
         "$temp_dir" "collections/luci-lib-docker" "" "" \
         "$temp_dir/collections/luci-lib-docker" \
         "$OPENWRT_PACKAGES_DIR/luci-lib-docker"
@@ -95,7 +95,7 @@ clone_dockerman() {
     local temp_dir="$OPENWRT_PACKAGES_DIR/dockerman-temp"
     _sync_luci_lib_docker
     clone_packages "luci-app-dockerman" \
-        "\${GITHUB_BASE}lisaac/luci-app-dockerman.git" \
+        "${GITHUB_BASE}lisaac/luci-app-dockerman.git" \
         "$temp_dir" "applications/luci-app-dockerman" "" "" \
         "$temp_dir/applications/luci-app-dockerman" "$target"
     rm -rf "$temp_dir"
