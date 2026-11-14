@@ -104,6 +104,32 @@ for package in "${REQUIRED_KMODS[@]}"; do
 done
 echo "检查通过：网络功能与 USB/文件系统内核模块均已选中。"
 
+REQUIRED_PACKAGES=(
+    luci-nginx
+    luci-theme-argon
+    luci-app-quickfile
+    quickfile
+    nginx-ssl
+    nginx-util
+    nginx-mod-luci
+    nginx-mod-ubus
+    uwsgi
+    uwsgi-luci-support
+    block-mount
+    ntfs3-mount
+    fuse-utils
+    usbutils
+    sgdisk
+    resize2fs
+)
+for package in "${REQUIRED_PACKAGES[@]}"; do
+    grep -qx "CONFIG_PACKAGE_${package}=y" .config || {
+        echo "错误：必需软件包 ${package} 在 make defconfig 后未被选中。" >&2
+        exit 1
+    }
+done
+echo "检查通过：QuickFile、Nginx 和存储工具均已在配置中选中。"
+
 if [[ "$BUILD_MOD" == "debug" ]]; then
     echo "调试模式：配置准备完成，按要求跳过实际编译。"
     exit 0
@@ -153,24 +179,6 @@ for package in "${REQUIRED_KMODS[@]}"; do
 done
 echo "检查通过：最终固件清单包含全部网络、USB 与文件系统内核模块。"
 
-REQUIRED_PACKAGES=(
-    luci-nginx
-    luci-theme-argon
-    luci-app-quickfile
-    quickfile
-    nginx-ssl
-    nginx-util
-    nginx-mod-luci
-    nginx-mod-ubus
-    uwsgi
-    uwsgi-luci-support
-    block-mount
-    ntfs3-mount
-    fuse-utils
-    usbutils
-    sgdisk
-    resize2fs
-)
 for package in "${REQUIRED_PACKAGES[@]}"; do
     if ! awk -v package="$package" '$1 == package { found=1 } END { exit !found }' "$MANIFEST_FILE"; then
         echo "错误：最终固件软件包清单缺少必需组件：$package" >&2

@@ -107,7 +107,7 @@ QuickFile 上游包由 LuCI 前端和 Rust 后端组成，前端依赖 `luci-ngi
 
 **这不代表固件已经预装 OpenClash。** OpenClash 本体不在当前精简预装列表中。刷入新固件后，只有在软件源提供与当前固件匹配的版本时，才可再通过 APK 安装 OpenClash。
 
-构建脚本会在 make defconfig 后检查上述 8 个模块是否仍被选中，并在编译完成后检查最终固件 manifest 是否逐一包含这 8 个包。任一检查失败，构建流程应报错退出，避免把缺少模块的镜像当作合格成品发布。
+构建脚本会在 make defconfig 后检查上述网络、USB 和文件系统模块是否仍被选中，并在编译完成后检查最终固件 manifest 是否逐一包含所有指定模块。任一检查失败，构建流程应报错退出，避免把缺少模块的镜像当作合格成品发布。
 
 如果运行中的旧固件缺少这些模块，仅修改 GitHub 配置或执行 apk add 并不能补齐与旧内核匹配的模块；需要构建并刷入包含对应模块的新固件。
 
@@ -166,7 +166,7 @@ QuickFile 上游包由 LuCI 前端和 Rust 后端组成，前端依赖 `luci-ngi
 
 1. Actions 工作流最终状态为成功。
 2. 输出目录中存在目标设备固件镜像。
-3. 对应 manifest 中存在 kmod-nft-tproxy 和 kmod-tun。
+3. 对应 manifest 中存在 QuickFile、Nginx、USB/文件系统模块，以及 kmod-nft-tproxy 和 kmod-tun。
 4. 下载后核对镜像文件名、设备型号和构建记录。
 
 ## 8. 刷机与升级注意事项
