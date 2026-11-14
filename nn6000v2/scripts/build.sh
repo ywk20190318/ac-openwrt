@@ -120,7 +120,7 @@ verify_no_docker_and_modular_packages() {
         tcpdump curl wget mtr socat iperf3 ethtool sgdisk openssl-util \
         resize2fs qrencode smartmontools-drivedb usbutils xz-utils bash ipset \
         kmod-wireguard wireguard-tools luci-proto-wireguard \
-        luci-proto-qmi luci-proto-mbim uqmi libqmi umbim libmbim usb-modeswitch \
+        luci-proto-qmi luci-proto-mbim luci-proto-relay uqmi libqmi umbim libmbim usb-modeswitch \
         luci-app-quickfile luci-app-mini-diskmanager luci-app-hd-idle \
         luci-app-p910nd luci-theme-argon luci-app-argon-config; do
         if ! grep -q "^CONFIG_PACKAGE_${package}=m$" "$config_path"; then
