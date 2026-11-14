@@ -183,6 +183,22 @@ if [[ ${#MISSING_KMODS[@]} -gt 0 ]]; then
     exit 1
 fi
 echo "检查通过：最终固件清单包含全部 ${#REQUIRED_KMODS[@]} 个显式选择的内核模块。"
+
+# Verify every package explicitly selected in the device config is present in
+# the final image manifest, not merely left enabled in .config.
+MISSING_IMAGE_PACKAGES=()
+for package in "${REQUESTED_PACKAGES[@]}"; do
+    if ! awk -v package="$package" '$1 == package { found=1 } END { exit !found }' "$MANIFEST_FILE"; then
+        MISSING_IMAGE_PACKAGES+=("$package")
+    fi
+done
+if [[ ${#MISSING_IMAGE_PACKAGES[@]} -gt 0 ]]; then
+    echo "错误：以下显式选择的软件包未进入最终固件 manifest：" >&2
+    printf '  - %s\n' "${MISSING_IMAGE_PACKAGES[@]}" >&2
+    exit 1
+fi
+echo "检查通过：设备配置中 ${#REQUESTED_PACKAGES[@]} 个显式软件包全部进入最终固件 manifest。"
+
 # Reject QuickStart and iStoreOS store packages even if selected indirectly by a feed.
 if grep -Eiq '(^|[[:space:]])(quickstart|luci-app-quickstart|istore|istorex|luci-app-istore|luci-app-istorex|luci-app-store)([[:space:]]|$)' "$MANIFEST_FILE"; then
     echo "错误：最终固件 manifest 仍包含 QuickStart 或 iStoreOS 商店相关软件包。" >&2
