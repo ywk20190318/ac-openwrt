@@ -58,6 +58,7 @@
 ## 3. 构建方式
 
 - GitHub Actions 仅支持手动触发（`workflow_dispatch`），不会因向 `main` 推送代码自动编译。
+- 手动触发时可选择 `preflight_only`，先运行脚本语法、配置、内核补丁及 FullCone/LuCI prepare 检查，不执行完整编译。
 - 每次只构建带 WiFi 驱动的固件，不生成 `nowifi` 版本。
 
 ## 4. 插件来源
