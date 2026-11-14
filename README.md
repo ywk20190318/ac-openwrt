@@ -190,7 +190,7 @@ cat /etc/apk/repositories.d/distfeeds.list 2>/dev/null
 apk update
 
 # 检查关键软件包
-apk info | grep -E '^(luci|luci-theme-argon|firewall4|nftables|kmod-nft-tproxy|kmod-tun)'
+apk info | grep -E '^(luci-nginx|luci-app-quickfile|quickfile|luci-theme-argon|nginx|firewall4|nftables|kmod-nft-tproxy|kmod-tun)'
 
 # 检查内核模块与 TUN 设备
 lsmod | grep -E 'tun|nft_tproxy|nft'

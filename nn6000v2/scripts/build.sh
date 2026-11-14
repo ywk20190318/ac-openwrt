@@ -142,7 +142,7 @@ rm -f "$FIRMWARE_DIR/Packages.manifest"
 # Verify the final firmware manifest, not just the requested Kconfig selections.
 MANIFEST_FILE="$(find "$FIRMWARE_DIR" -maxdepth 1 -type f -name '*.manifest' -print -quit)"
 if [[ -z "$MANIFEST_FILE" ]]; then
-    echo "错误：未生成固件软件包清单，无法验证 OpenClash 依赖模块。" >&2
+    echo "错误：未生成固件软件包清单，无法验证本次选择的内核模块和 QuickFile 组件。" >&2
     exit 1
 fi
 for package in "${REQUIRED_KMODS[@]}"; do
