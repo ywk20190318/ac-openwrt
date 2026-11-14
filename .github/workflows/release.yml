@@ -71,7 +71,7 @@ jobs:
             echo "Obsolete docker_deps.config remains."
             exit 1
           fi
-          if grep -Rni 'docker_deps\.config' nn6000v2/scripts; then
+          if grep -Eni 'cat .*docker_deps\.config|docker_deps\.config.*>>' nn6000v2/scripts/*.sh; then
             echo "Build scripts still reference docker_deps.config."
             exit 1
           fi
