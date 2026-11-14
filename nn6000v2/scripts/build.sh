@@ -11,9 +11,9 @@ CONFIG_FILE="$BASE_PATH/configs/kernel/${DEV}.config"
 INI_FILE="$BASE_PATH/configs/${DEV}.ini"
 BUILD_DIR="$REPO_ROOT/action_build"
 
-[[ -f "$CONFIG_FILE" ]] || { echo "Missing config: $CONFIG_FILE" >&2; exit 1; }
-[[ -f "$INI_FILE" ]] || { echo "Missing device ini: $INI_FILE" >&2; exit 1; }
-[[ -d "$BUILD_DIR" ]] || { echo "Missing source tree: $BUILD_DIR (run pre_clone_action.sh first)" >&2; exit 1; }
+[[ -f "$CONFIG_FILE" ]] || { echo "错误：找不到设备配置文件：$CONFIG_FILE" >&2; exit 1; }
+[[ -f "$INI_FILE" ]] || { echo "错误：找不到设备信息文件：$INI_FILE" >&2; exit 1; }
+[[ -d "$BUILD_DIR" ]] || { echo "错误：源码目录不存在：$BUILD_DIR（请先执行 pre_clone_action.sh）" >&2; exit 1; }
 
 read_ini() {
     local key="$1"
@@ -42,9 +42,9 @@ modify_kernel_size() {
     local image_mk="$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
     if [[ -f "$image_mk" ]]; then
         sed -i '/link_nn6000-common/,/endef/{s/KERNEL_SIZE := 6144k/KERNEL_SIZE := 12288k/g;}' "$image_mk"
-        echo "Checked NN6000 kernel partition size."
+        echo "已检查 NN6000 内核分区大小配置。"
     else
-        echo "WARNING: $image_mk not found; kernel size was not modified." >&2
+        echo "警告：未找到 $image_mk，未修改内核分区大小。" >&2
     fi
 }
 
@@ -57,30 +57,30 @@ make defconfig
 # Fail early if APK or the Simplified Chinese LuCI translation was dropped
 # by Kconfig/feeds resolution; do not silently publish an OPKG or English-only image.
 grep -qx 'CONFIG_USE_APK=y' .config || {
-    echo "ERROR: APK package manager is not enabled after make defconfig." >&2
+    echo "错误：make defconfig 后未启用 APK 包管理器。" >&2
     exit 1
 }
 if grep -qx 'CONFIG_USE_OPKG=y' .config; then
-    echo "ERROR: OPKG is enabled; this build must use APK only." >&2
+    echo "错误：检测到 OPKG 已启用；本固件必须仅使用 APK。" >&2
     exit 1
 fi
 grep -qx 'CONFIG_LUCI_LANG_zh_Hans=y' .config || {
-    echo "ERROR: LuCI Simplified Chinese language option was not enabled after make defconfig." >&2
+    echo "错误：make defconfig 后未启用 LuCI 简体中文语言选项。" >&2
     exit 1
 }
-echo "Verified: APK package manager + LuCI Simplified Chinese language selection."
+echo "检查通过：已启用 APK 包管理器和 LuCI 简体中文语言。"
 
 # OpenClash needs both modules; fail during config validation if Kconfig drops either.
 for package in kmod-nft-tproxy kmod-tun; do
     grep -qx "CONFIG_PACKAGE_${package}=y" .config || {
-        echo "ERROR: ${package} is required for OpenClash but was not selected after make defconfig." >&2
+        echo "错误：OpenClash 依赖模块 ${package} 在 make defconfig 后未被选中。" >&2
         exit 1
     }
 done
-echo "Verified: OpenClash nftables TProxy + TUN kernel modules selected."
+echo "检查通过：已选择 OpenClash 所需的 nftables TProxy 和 TUN 内核模块。"
 
 if [[ "$BUILD_MOD" == "debug" ]]; then
-    echo "Debug mode: configuration prepared; build skipped."
+    echo "调试模式：配置准备完成，按要求跳过实际编译。"
     exit 0
 fi
 
@@ -117,21 +117,21 @@ rm -f "$FIRMWARE_DIR/Packages.manifest"
 # Verify the final firmware manifest, not just the requested Kconfig selections.
 MANIFEST_FILE="$(find "$FIRMWARE_DIR" -maxdepth 1 -type f -name '*.manifest' -print -quit)"
 if [[ -z "$MANIFEST_FILE" ]]; then
-    echo "ERROR: no firmware package manifest was produced; cannot verify OpenClash modules." >&2
+    echo "错误：未生成固件软件包清单，无法验证 OpenClash 依赖模块。" >&2
     exit 1
 fi
 for package in kmod-nft-tproxy kmod-tun; do
     if ! awk -v package="$package" '$1 == package { found=1 } END { exit !found }' "$MANIFEST_FILE"; then
-        echo "ERROR: final firmware manifest does not contain required OpenClash package: $package" >&2
+        echo "错误：最终固件软件包清单缺少 OpenClash 必需模块：$package" >&2
         exit 1
     fi
 done
-echo "Verified: final firmware manifest contains kmod-nft-tproxy and kmod-tun."
+echo "检查通过：最终固件清单包含 kmod-nft-tproxy 和 kmod-tun。"
 if ! find "$FIRMWARE_DIR" -maxdepth 1 -type f | grep -q .; then
-    echo "ERROR: build completed but no firmware artifacts were collected." >&2
+    echo "错误：编译流程结束，但未收集到任何固件产物。" >&2
     exit 1
 fi
 
-echo "===== Firmware artifacts ====="
+echo "===== 固件产物清单 ====="
 find "$FIRMWARE_DIR" -maxdepth 1 -type f -printf '%f (%s bytes)\n' | sort
-echo "===== Compiler cache preserved at $BUILD_DIR/.ccache ====="
+echo "===== 编译缓存已保留：$BUILD_DIR/.ccache ====="
