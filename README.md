@@ -40,7 +40,7 @@
 **后期安装（独立 APK，不占用出厂固件空间）：**
 - USB 存储、打印机、串口、4G/5G 网卡及 USB 网卡驱动。
 - exFAT、VFAT、EXT4、NTFS3、CIFS、NFS 等可选文件系统。
-- 可选 IPv6 iptables 兼容层、隧道和路由模块。
+- 可选 IPv6 iptables 兼容层、隧道和路由模块。\n- WireGuard 内核模块、命令行工具及 LuCI 协议页面（按需安装）。
 - tcpdump、mtr、iperf3、htop、ethtool、curl、磁盘工具等诊断/维护工具。
 - QuickFile、磁盘管理、硬盘休眠、打印机管理、Argon 主题等可选 LuCI 应用。
 
