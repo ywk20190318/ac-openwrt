@@ -34,7 +34,6 @@ source "$SCRIPT_DIR/packages.sh"
 source "$SCRIPT_DIR/system.sh"
 source "$SCRIPT_DIR/docker.sh"
 
-
 main() {
     clone_repo
     clean_up
