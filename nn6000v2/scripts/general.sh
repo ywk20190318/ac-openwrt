@@ -44,6 +44,6 @@ reset_feeds_conf() {
     # earlier edit is discarded by reset --hard.
     local mirrors_file="$BUILD_DIR/scripts/projectsmirrors.json"
     if [[ -f "$mirrors_file" ]]; then
-        sed -i '/\\.cn\\//d; /tencent/d; /aliyun/d' "$mirrors_file"
+        sed -i '/\.cn\//d; /tencent/d; /aliyun/d' "$mirrors_file"
     fi
 }
