@@ -32,7 +32,7 @@ COMMIT_HASH="${COMMIT_HASH:-none}"
 # Apply the optional kernel version only after update.sh has reset/pulled source.
 KERNEL_PATCHVER="${KERNEL_PATCHVER:-}"
 if [[ -n "$KERNEL_PATCHVER" ]]; then
-    if [[ ! "$KERNEL_PATCHVER" =~ ^[0-9]+\\.[0-9]+$ ]]; then
+    if [[ ! "$KERNEL_PATCHVER" =~ ^[0-9]+\.[0-9]+$ ]]; then
         echo "错误：KERNEL_PATCHVER 必须使用主版本.次版本格式，例如 6.6。" >&2
         exit 1
     fi
