@@ -32,7 +32,6 @@ source "$SCRIPT_DIR/general.sh"
 source "$SCRIPT_DIR/feeds.sh"
 source "$SCRIPT_DIR/packages.sh"
 source "$SCRIPT_DIR/system.sh"
-source "$SCRIPT_DIR/docker.sh"
 
 main() {
     clone_repo
@@ -43,11 +42,9 @@ main() {
     update_golang
     clone_quickfile
     clone_mini_diskmanager
-    clone_dockerman
     install_feeds
     install_sonic_fullcone
     restore_libffi
-    update_docker_stack
     remove_tweaked_packages
     change_dnsmasq2full
     fix_default_set
