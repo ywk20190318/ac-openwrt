@@ -62,6 +62,10 @@ jobs:
           for script in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do bash -n "$script"; done
           sh -n nn6000v2/patches/994_set_apk_repos
           CONFIG=nn6000v2/configs/link_nn6000v2_immwrt.config
+          if grep -q '^CONFIG_PACKAGE_kmod-fs-overlay=' "$CONFIG"; then
+            echo "OverlayFS must be verified as a built-in kernel feature, not a separate kmod package."
+            exit 1
+          fi
           if grep -Eiq '^CONFIG_PACKAGE_[^=]*(docker|dockerman)[^=]*=(y|m)$' "$CONFIG"; then
             echo "Docker/Dockerman package remains selected."
             grep -Ein '^CONFIG_PACKAGE_[^=]*(docker|dockerman)[^=]*=(y|m)$' "$CONFIG"
@@ -94,7 +98,6 @@ jobs:
             'CONFIG_PACKAGE_dnsmasq-full=y' \
             'CONFIG_PACKAGE_kmod-fs-f2fs=y' \
             'CONFIG_PACKAGE_kmod-fs-squashfs=y' \
-            'CONFIG_PACKAGE_kmod-fs-overlay=y' \
             'CONFIG_PACKAGE_fullconenat-sonic=y' \
             'CONFIG_PACKAGE_luci-app-fullconenat-sonic=y' \
             'CONFIG_IPV6=y' \
