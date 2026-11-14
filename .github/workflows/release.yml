@@ -107,20 +107,25 @@ jobs:
       - name: Validate custom build scripts and package exclusions
         run: |
           set -euo pipefail
-          for f in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do bash -n "$f"; done
+          for script in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do
+            bash -n "$script"
+          done
+          if grep -Eq '^CONFIG_PACKAGE_(luci-app-store|luci-app-istorex|taskd|luci-lib-taskd|luci-lib-xterm|luci-lib-ipkg)=y$' nn6000v2/configs/link_nn6000v2_immwrt.config; then
+            echo "iStore package or helper dependency is still selected."
+            exit 1
+          fi
+          echo "Custom shell scripts and iStore package exclusions passed."
+      - name: Validate build configuration before compilation
+        run: |
+          set -euo pipefail
+          for script in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do
+            bash -n "$script"
+          done
           if grep -Eiq 'passwall|smartdns|tailscale|zerotier|lucky|adguardhome|ghboost|openappfilter|istoreos' nn6000v2/scripts/{packages,update,feeds,system,docker}.sh; then
             echo "Removed plugin integration remains in build scripts."
             exit 1
           fi
-          if grep -Eq '^CONFIG_PACKAGE_(luci-app-store|luci-app-istorex|taskd|luci-lib-taskd|luci-lib-xterm|luci-lib-ipkg|kmod-nft-fullcone|kmod-nft-nat6)=y' nn6000v2/configs/link_nn6000v2_immwrt.config; then
-            echo "Removed or invalid package remains selected."
-            exit 1
-          fi
-          grep -q '^CONFIG_PACKAGE_kmod-nf-nat6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-nf-log6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-nf-reject6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
-          git diff --check
-      - name: Restore Build Dependencies Cache
+          if grep -Eq '^CONFIG_PACKAGE_(luci-app-store|luci-app-istorex|taskd|luci-lib-taskd|luci-lib-xterm|luci-lib-ipkg|kmod-nft-fullcone|kmod-nft-nat6)=y
         uses: actions/cache/restore@v5.0.4
         with:
           path: |
@@ -299,15 +304,10 @@ jobs:
           
           echo "✓ 工作流运行记录清理完成"
  nn6000v2/configs/link_nn6000v2_immwrt.config; then
-            echo "A removed or invalid package is still selected."
-            exit 1
-          fi
-          if grep -Eiq 'passwall|smartdns|tailscale|zerotier|clone_lucky|clone_adguardhome|clone_ghboost|clone_oaf|clone_dockerd_istoreos|clone_luci_tailscale' nn6000v2/scripts/packages.sh nn6000v2/scripts/update.sh nn6000v2/scripts/feeds.sh nn6000v2/scripts/system.sh nn6000v2/scripts/docker.sh; then
-            echo "A removed plugin integration remains in the build scripts."
+            echo "Removed or invalid package remains selected."
             exit 1
           fi
           grep -q '^CONFIG_PACKAGE_kmod-nf-nat6=y
-      - name: Restore Build Dependencies Cache
         uses: actions/cache/restore@v5.0.4
         with:
           path: |
@@ -487,7 +487,6 @@ jobs:
           echo "✓ 工作流运行记录清理完成"
  nn6000v2/configs/link_nn6000v2_immwrt.config
           grep -q '^CONFIG_PACKAGE_kmod-nf-log6=y
-      - name: Restore Build Dependencies Cache
         uses: actions/cache/restore@v5.0.4
         with:
           path: |
@@ -667,7 +666,6 @@ jobs:
           echo "✓ 工作流运行记录清理完成"
  nn6000v2/configs/link_nn6000v2_immwrt.config
           grep -q '^CONFIG_PACKAGE_kmod-nf-reject6=y
-      - name: Restore Build Dependencies Cache
         uses: actions/cache/restore@v5.0.4
         with:
           path: |
@@ -846,8 +844,9 @@ jobs:
           
           echo "✓ 工作流运行记录清理完成"
  nn6000v2/configs/link_nn6000v2_immwrt.config
-          git diff --check
-          echo "Shell syntax, package exclusions and IPv6 module checks passed."
+          grep -q 'WIFI_5G_KEY="88888888"' nn6000v2/patches/992_network_config.sh
+          grep -q 'WIFI_2G_KEY="88888888"' nn6000v2/patches/992_network_config.sh
+          ! grep -Eq '147258369|no_wifi|nowifi' README.md .github/workflows/release.yml
       - name: Restore Build Dependencies Cache
         uses: actions/cache/restore@v5.0.4
         with:
