@@ -124,12 +124,76 @@ verify_ipv6_packages_config() {
 }
 
 preflight_sonic_fullcone() {
-    local kernel_patch_dir="$BASE_PATH/patches/fullcone/kernel"
+    local build_root="$BASE_PATH/../$BUILD_DIR"
+    local config_path="$build_root/.config"
+    local backend_dir="$build_root/package/network/utils/fullconenat-sonic"
+    local luci_dir="$build_root/package/emortal/luci-app-fullconenat-sonic"
+    local firewall4_dir="$build_root/package/network/config/firewall4"
     local required
-    for required in 984-add-sonic-fullcone-support.patch 986-add-sonic-fullcone-to-nft.patch 987-sonic-fullcone-fix-races-and-drops.patch; do
-        [ -s "$kernel_patch_dir/$required" ] || { echo "Missing SONiC FullCone kernel patch: $kernel_patch_dir/$required" >&2; return 1; }
+
+    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y$' "$config_path" || {
+        echo "kmod-nft-nat is required for SONiC Fullcone." >&2
+        return 1
+    }
+    grep -q '^CONFIG_PACKAGE_fullconenat-sonic=y$' "$config_path" || {
+        echo "The upstream fullconenat-sonic backend package is not selected." >&2
+        return 1
+    }
+    grep -q '^CONFIG_PACKAGE_luci-app-fullconenat-sonic=y$' "$config_path" || {
+        echo "The upstream Fullcone LuCI app is not selected." >&2
+        return 1
+    }
+    grep -q '^CONFIG_IPV6=y$' "$config_path" || {
+        echo "IPv6 kernel protocol stack is not enabled." >&2
+        return 1
+    }
+    for required in kmod-nf-nat6 kmod-nf-log6 kmod-nf-reject6; do
+        grep -q "^CONFIG_PACKAGE_\${required}=y$" "$config_path" || {
+            echo "Required IPv6 netfilter package is missing: \${required}" >&2
+            return 1
+        }
     done
-    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y
+    for required in kmod-ip6tables kmod-ip6tables-extra kmod-ip6-tunnel kmod-sit kmod-gre6 kmod-fou6 kmod-ipsec6 kmod-ip6-vti; do
+        grep -q "^CONFIG_PACKAGE_\${required}=m$" "$config_path" || {
+            echo "Optional IPv6 APK module is missing or not modular: \${required}" >&2
+            return 1
+        }
+    done
+    if grep -Eq '^CONFIG_PACKAGE_kmod-(nft-fullcone|nft-nat6)=y$' "$config_path"; then
+        echo "Obsolete standalone Fullcone or invalid nft-nat6 package remains selected." >&2
+        return 1
+    fi
+
+    for required in \
+        "$build_root/target/linux/generic/hack-6.18/984-add-sonic-fullcone-support.patch" \
+        "$build_root/target/linux/generic/hack-6.18/986-add-sonic-fullcone-to-nft.patch" \
+        "$build_root/package/libs/libnftnl/patches/001-libnftnl-add-fullcone-expression-support.patch" \
+        "$build_root/package/network/utils/nftables/patches/002-nftables-add-fullcone-expression-support.patch" \
+        "$firewall4_dir/patches/001-sonic-fullcone.patch" \
+        "$firewall4_dir/patches/002-default-enable-fullcone.patch" \
+        "$firewall4_dir/patches/003-match-nat-leakage-address-family.patch" \
+        "$firewall4_dir/patches/004-independent-ipv6.patch" \
+        "$luci_dir/patches/001-integrate-firewall-zones.patch" \
+        "$luci_dir/patches/002-disable-routing-nat-offload.patch" \
+        "$luci_dir/htdocs/luci-static/resources/tools/fullconenat-sonic.js" \
+        "$luci_dir/root/etc/uci-defaults/90-luci-app-fullconenat-sonic"; do
+        [ -s "$required" ] || {
+            echo "Missing upstream/custom SONiC Fullcone component: $required" >&2
+            return 1
+        }
+    done
+    grep -q 'CONFIG_NF_NAT_FULLCONE=y' "$backend_dir/Makefile" || {
+        echo "Upstream backend Kconfig integration is missing." >&2
+        return 1
+    }
+    grep -q '@LINUX_6_18' "$backend_dir/Makefile" || {
+        echo "Upstream SONiC backend is not constrained to Linux 6.18." >&2
+        return 1
+    }
+    grep -q 'fullcone6' "$firewall4_dir/patches/004-independent-ipv6.patch" || return 1
+    grep -q 'fullcone6' "$luci_dir/htdocs/luci-static/resources/tools/fullconenat-sonic.js" || return 1
+    echo "SONiC Fullcone static preflight passed."
+}
 
 apply_config() {
     \cp -f "$CONFIG_FILE" "$BASE_PATH/../$BUILD_DIR/.config"
@@ -234,6 +298,8 @@ make package/libs/libnftnl/prepare
 make package/network/utils/nftables/prepare
 make package/network/config/firewall4/prepare
 make package/feeds/luci/luci-app-firewall/prepare
+make package/network/utils/fullconenat-sonic/prepare
+make package/emortal/luci-app-fullconenat-sonic/prepare
 
 if [[ $Build_Mod == "debug" ]]; then
     exit 0
