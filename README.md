@@ -36,6 +36,9 @@
 | `luci-app-quickfile` | 文件管理 |
 | `luci-app-p910nd` | USB 打印机共享 |
 | `luci-app-hd-idle` | 硬盘休眠 |
+
+- Docker 后端使用上游官方 feeds 的 `docker` / `dockerd` 软件包；本项目预装 Dockerman 管理界面，不替换 Docker daemon 为第三方 fork。
+- 表格列出本固件实际预装的应用；其他可安装包以当前 feeds 提供的包索引为准，不代表额外插件已预装。
 ***
 
 ### 2.3 SONiC FullCone NAT
