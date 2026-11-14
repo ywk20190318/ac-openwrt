@@ -90,7 +90,13 @@ LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系�
 - kmod-nft-tproxy
 - kmod-tun
 
-**这不代表固件已经预装 OpenClash。** OpenClash 本体不在当前精简预装列表中。刷入新固件后，只有在软件源提供与当前固件匹配的版本时，才可再通过 APK 安装 OpenClash。
+**这不代表固件已经预装 OpenClash。**
+### KMS 服务说明
+
+如果这里的 KMS 指 Windows/Office 局域网 KMS 服务端（例如 vlmcsd），它是用户态 TCP 服务，不需要额外的专用内核模块。需要的是正常网络协议栈、服务程序本身，以及按需允许 LAN 访问 TCP 1688 端口；若希望客户端自动发现，还需要 dnsmasq 配置对应的 `_vlmcs._tcp` SRV 记录。
+
+因此，本固件不会为了 KMS 增加虚构的 `kmod-kms` 或其他无关内核模块。是否把 `vlmcsd` 服务端和 `luci-app-vlmcsd` 管理界面也编入固件，需另行确认；当前配置不代表已预装这两个软件包。
+ OpenClash 本体不在当前精简预装列表中。刷入新固件后，只有在软件源提供与当前固件匹配的版本时，才可再通过 APK 安装 OpenClash。
 
 构建脚本会在 make defconfig 后检查两个模块是否仍被选中，并在编译完成后检查最终固件 manifest 是否包含这两个包。任一检查失败，构建流程应报错退出，避免把缺少模块的镜像当作合格成品发布。
 
