@@ -181,16 +181,6 @@ update_dnsmasq_conf() {
     fi
 }
 
-add_backup_info_to_sysupgrade() {
-    local conf_path="$BUILD_DIR/package/base-files/files/etc/sysupgrade.conf"
-
-    if [ -f "$conf_path" ]; then
-        cat >"$conf_path" <<'EOF'
-/etc/AdGuardHome.yaml
-/etc/lucky/
-EOF
-    fi
-}
 
 update_script_priority() {
     local qca_drv_path="$BUILD_DIR/package/feeds/nss_packages/qca-nss-drv/files/qca-nss-drv.init"
@@ -210,16 +200,6 @@ fix_rust_compile_error() {
     fi
 }
 
-fix_zerotier_nonfree() {
-    local makefile="$BUILD_DIR/feeds/packages/net/zerotier/Makefile"
-    if [ ! -f "$makefile" ]; then
-        echo "zerotier Makefile not found, skip NONFREE fix"
-        return 0
-    fi
-
-    echo "正在启用 zerotier ZT_NONFREE=1（内置 Controller 支持）..."
-    sed -i 's/ZT_NONFREE=0/ZT_NONFREE=1/g' "$makefile"
-}
 
 fix_miniupnpd_patches() {
     local dir="$BUILD_DIR/feeds/packages/net/miniupnpd/patches"
@@ -231,56 +211,6 @@ fix_miniupnpd_patches() {
     done
 }
 
-fix_smartdns_makefile() {
-    local makefile="$BUILD_DIR/feeds/openwrt_packages/smartdns/Makefile"
-    if [ ! -f "$makefile" ]; then
-        makefile="$BUILD_DIR/feeds/packages/net/smartdns/Makefile"
-    fi
-    if [ ! -f "$makefile" ]; then
-        echo "smartdns Makefile not found, skip fix"
-        return 0
-    fi
-
-    echo "正在修复 smartdns Makefile，移除 Rust UI 依赖..."
-
-    local smartdns_ver apk_ver
-    smartdns_ver=$(sed -n 's/^PKG_VERSION:=//p' "$makefile" | head -n 1)
-    case "$smartdns_ver" in
-        *-RC*|*-rc*)
-            apk_ver=$(echo "$smartdns_ver" | sed 's/-[Rr][Cc]/_rc/')
-            echo "正在修正 smartdns 版本号：$smartdns_ver -> $apk_ver..."
-            sed -i "s/^PKG_VERSION:=.*/PKG_VERSION:=$apk_ver/" "$makefile"
-            sed -i "s|^PKG_SOURCE_URL:=.*|PKG_SOURCE_URL:=https://codeload.github.com/pymumu/smartdns/tar.gz/Release$smartdns_ver?|" "$makefile"
-            sed -i "s|^PKG_BUILD_DIR:=.*|PKG_BUILD_DIR:=\$(BUILD_DIR)/\$(PKG_NAME)-Release$smartdns_ver|" "$makefile"
-            ;;
-    esac
-
-    # 删除 Rust package include
-    sed -i '/rust-package.mk/d' "$makefile"
-    # 删除 Rust 相关变量
-    sed -i '/^RUST_PKG/d' "$makefile"
-    sed -i '/^PKG_BUILD_DEPENDS.*smartdns-ui/d' "$makefile"
-    sed -i '/^PKG_CONFIG_DEPENDS.*smartdns-ui/d' "$makefile"
-    # 删除 smartdns-ui 包定义
-    sed -i '/^define Package\/smartdns-ui/,/^endef/d' "$makefile"
-    # 删除 Build/Prepare 中的 smartdns-webui 下载
-    sed -i '/^define Download\/smartdns-webui/,/^endef/d' "$makefile"
-    sed -i '/smartdns-webui/d' "$makefile"
-    # 删除 Build/Prepare 和 Build/Compile 中的 ifneq 块
-    sed -i '/ifneq.*CONFIG_PACKAGE_smartdns-ui/,/endif/d' "$makefile"
-    # 删除 smartdns-ui 安装规则
-    sed -i '/^define Package\/smartdns-ui\/install/,/^endef/d' "$makefile"
-    # 删除 smartdns-ui 的 eval
-    sed -i '/smartdns-ui)/d' "$makefile"
-    # 补充缺失的 zlib 依赖
-    if grep -q 'DEPENDS:=.*+i386:libatomic +libopenssl' "$makefile"; then
-        if ! grep -q '+zlib' "$makefile"; then
-            sed -i 's/DEPENDS:=+i386:libatomic +libopenssl/DEPENDS:=+i386:libatomic +libopenssl +zlib/' "$makefile"
-        fi
-    fi
-    
-    echo "smartdns Makefile 修复完成"
-}
 
 update_nginx_ubus_module() {
     local makefile_path="$BUILD_DIR/feeds/packages/net/nginx/Makefile"
