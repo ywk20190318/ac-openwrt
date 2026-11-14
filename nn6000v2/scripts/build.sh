@@ -52,7 +52,117 @@ apply_config
 modify_kernel_size
 
 cd "$BUILD_DIR"
+
+# Hard-disable QuickStart before Kconfig resolution. This also guards against
+# a package being selected indirectly by an upstream default or feed.
+sed -i '/^CONFIG_PACKAGE_quickstart=/d; /^CONFIG_PACKAGE_luci-app-quickstart=/d' .config
+cat >> .config <<'EOF'
+CONFIG_PACKAGE_quickstart=n
+CONFIG_PACKAGE_luci-app-quickstart=n
+EOF
+
 make defconfig
+
+# Fail the build if either QuickStart package survives defconfig.
+if grep -Eq '^CONFIG_PACKAGE_(quickstart|luci-app-quickstart)=y
+# Fail early if APK or the Simplified Chinese LuCI translation was dropped
+# by Kconfig/feeds resolution; do not silently publish an OPKG or English-only image.
+grep -qx 'CONFIG_USE_APK=y' .config || {
+    echo "错误：make defconfig 后未启用 APK 包管理器。" >&2
+    exit 1
+}
+if grep -qx 'CONFIG_USE_OPKG=y' .config; then
+    echo "错误：检测到 OPKG 已启用；本固件必须仅使用 APK。" >&2
+    exit 1
+fi
+grep -qx 'CONFIG_LUCI_LANG_zh_Hans=y' .config || {
+    echo "错误：make defconfig 后未启用 LuCI 简体中文语言选项。" >&2
+    exit 1
+}
+echo "检查通过：已启用 APK 包管理器和 LuCI 简体中文语言。"
+
+# Validate every explicitly selected kernel module after Kconfig dependency resolution.
+# This covers the complete retained upstream kmod selection, not just a short hard-coded list.
+REQUIRED_KMODS=()
+while IFS= read -r package; do
+    [[ -n "$package" ]] && REQUIRED_KMODS+=("$package")
+done < <(sed -n 's/^CONFIG_PACKAGE_\(kmod-[^=]*\)=y$/\1/p' .config | sort -u)
+
+if [[ ${#REQUIRED_KMODS[@]} -eq 0 ]]; then
+    echo "错误：配置中没有选中任何内核模块，拒绝继续构建。" >&2
+    exit 1
+fi
+echo "已检测到 ${#REQUIRED_KMODS[@]} 个显式选择的内核模块，开始验证..."
+
+
+if [[ "$BUILD_MOD" == "debug" ]]; then
+    echo "调试模式：配置准备完成，按要求跳过实际编译。"
+    exit 0
+fi
+
+TARGET_DIR="$BUILD_DIR/bin/targets"
+FIRMWARE_DIR="$REPO_ROOT/firmware"
+rm -rf "$FIRMWARE_DIR"
+mkdir -p "$FIRMWARE_DIR"
+
+# Remove only old target artifacts; keep build/staging and compiler cache intact.
+if [[ -d "$TARGET_DIR" ]]; then
+    find "$TARGET_DIR" -type f \( \
+        -name '*.bin' -o -name '*.manifest' -o -name '*efi.img.gz' \
+        -o -name '*.itb' -o -name '*.fip' -o -name '*.ubi' \
+        -o -name '*rootfs.tar.gz' \
+    \) -delete
+fi
+
+make download -j"$(($(nproc) * 2))"
+if ! make -j"$(($(nproc) + 1))"; then
+    echo "并行编译失败，正在改用单线程详细模式重试..." >&2
+    make -j1 V=s
+fi
+
+[[ -d "$TARGET_DIR" ]] || { echo "错误：找不到目标固件输出目录：$TARGET_DIR" >&2; exit 1; }
+
+find "$TARGET_DIR" -type f \( \
+    -name '*.bin' -o -name '*.manifest' -o -name '*efi.img.gz' \
+    -o -name '*.itb' -o -name '*.fip' -o -name '*.ubi' \
+    -o -name '*rootfs.tar.gz' \
+\) -exec cp -f {} "$FIRMWARE_DIR/" \;
+
+rm -f "$FIRMWARE_DIR/Packages.manifest"
+
+# Verify every explicitly selected kmod in the final image manifest.
+MANIFEST_FILE="$(find "$FIRMWARE_DIR" -maxdepth 1 -type f -name '*.manifest' -print -quit)"
+if [[ -z "$MANIFEST_FILE" ]]; then
+    echo "错误：未生成固件软件包清单，无法验证内核模块。" >&2
+    exit 1
+fi
+MISSING_KMODS=()
+for package in "${REQUIRED_KMODS[@]}"; do
+    if ! awk -v package="$package" '$1 == package { found=1 } END { exit !found }' "$MANIFEST_FILE"; then
+        MISSING_KMODS+=("$package")
+    fi
+done
+if [[ ${#MISSING_KMODS[@]} -gt 0 ]]; then
+    printf '错误：最终固件缺少以下已选择内核模块：\\n' >&2
+    printf '  - %s\\n' "${MISSING_KMODS[@]}" >&2
+    exit 1
+fi
+echo "检查通过：最终固件清单包含全部 ${#REQUIRED_KMODS[@]} 个显式选择的内核模块。"
+
+if ! find "$FIRMWARE_DIR" -maxdepth 1 -type f | grep -q .; then
+    echo "错误：编译流程结束，但未收集到任何固件产物。" >&2
+    exit 1
+fi
+
+echo "===== 固件产物清单 ====="
+find "$FIRMWARE_DIR" -maxdepth 1 -type f -printf '%f (%s bytes)\n' | sort
+echo "===== 编译缓存已保留：$BUILD_DIR/.ccache ====="
+ .config; then
+    echo "错误：QuickStart 被重新选入 .config，已停止构建。" >&2
+    grep -E '^CONFIG_PACKAGE_(quickstart|luci-app-quickstart)=' .config >&2 || true
+    exit 1
+fi
+echo "检查通过：quickstart 和 luci-app-quickstart 均已禁用。"
 
 # Fail early if APK or the Simplified Chinese LuCI translation was dropped
 # by Kconfig/feeds resolution; do not silently publish an OPKG or English-only image.
