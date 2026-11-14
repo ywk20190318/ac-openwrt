@@ -55,8 +55,8 @@ fix_apk_pkg_version() {
 install_openwrt_packages() {
     ./scripts/feeds install -p openwrt_packages -f \
         luci-theme-argon luci-app-argon-config \
-        luci-lib-docker luci-app-dockerman \
-        luci-app-quickfile luci-app-mini-diskmanager
+        luci-app-dockerman luci-app-quickfile \
+        luci-app-mini-diskmanager luci-app-hd-idle luci-app-p910nd
 }
 
 clone_quickfile() {
