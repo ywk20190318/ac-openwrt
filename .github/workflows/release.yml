@@ -54,24 +54,32 @@ jobs:
       - name: Validate build scripts and package selection
         run: |
           set -euo pipefail
-          for script in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do
-            bash -n "$script"
-          done
+          for script in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do bash -n "$script"; done
+          sh -n nn6000v2/patches/994_set_apk_repos
           if grep -Eiq 'passwall|smartdns|tailscale|zerotier|lucky|adguardhome|ghboost|openappfilter|istoreos' nn6000v2/scripts/{packages,update,feeds,system,docker}.sh; then
             echo "Removed plugin integration remains in build scripts."
             exit 1
           fi
-          if grep -Eq '^CONFIG_PACKAGE_(luci-app-store|luci-app-istorex|taskd|luci-lib-taskd|luci-lib-xterm|luci-lib-ipkg|kmod-nft-fullcone|kmod-nft-nat6)=y$' nn6000v2/configs/link_nn6000v2_immwrt.config; then
+          if grep -Eq '^CONFIG_PACKAGE_(luci-app-store|luci-app-istorex|taskd|luci-lib-taskd|luci-lib-xterm|luci-lib-ipkg|luci-app-passwall|luci-app-smartdns|luci-app-tailscale-community|luci-app-zerotier|luci-app-sqm|luci-app-lucky|luci-app-adguardhome|luci-app-ghboost|luci-app-oaf|kmod-nft-fullcone|kmod-nft-nat6)=y' nn6000v2/configs/link_nn6000v2_immwrt.config; then
             echo "Removed or invalid package remains selected."
             exit 1
           fi
-          grep -q '^CONFIG_PACKAGE_kmod-nf-nat6=y$' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-nf-log6=y$' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q '^CONFIG_PACKAGE_kmod-nf-reject6=y$' nn6000v2/configs/link_nn6000v2_immwrt.config
-          grep -q 'WIFI_5G_KEY="88888888"' nn6000v2/patches/992_network_config.sh
-          grep -q 'WIFI_2G_KEY="88888888"' nn6000v2/patches/992_network_config.sh
-          grep -q '12288k' nn6000v2/scripts/build.sh
+          grep -q '^CONFIG_PACKAGE_fullconenat-sonic=y' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_luci-app-fullconenat-sonic=y' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_IPV6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_kmod-nf-nat6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_kmod-nf-log6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_kmod-nf-reject6=y' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_kmod-ip6tables=m' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_kmod-ip6-tunnel=m' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_kmod-sit=m' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_kmod-gre6=m' nn6000v2/configs/link_nn6000v2_immwrt.config
+          grep -q '^CONFIG_PACKAGE_kmod-fou6=m' nn6000v2/configs/link_nn6000v2_immwrt.config
+          test -s nn6000v2/patches/fullcone/firewall4/004-independent-ipv6.patch
+          test -s nn6000v2/patches/fullcone/luci-app-fullconenat-sonic/fullconenat-sonic.js
+          grep -q 'prepare' nn6000v2/scripts/build.sh
           grep -q 'preflight_sonic_fullcone' nn6000v2/scripts/build.sh
+          git diff --check
           echo "Pre-build validation passed."
 
       - name: Restore build cache
