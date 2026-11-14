@@ -118,7 +118,7 @@ verify_ipv6_packages_config() {
         }
     done
 
-    for package in kmod-nf-ipt6 kmod-ip6-tunnel kmod-sit kmod-gre6 kmod-fou6 kmod-ipsec6 kmod-ip6-vti kmod-xfrm-interface; do
+    for package in kmod-nf-ipt6 kmod-ip6tables kmod-ip6tables-extra kmod-ip6-tunnel kmod-sit kmod-gre kmod-gre6 kmod-fou kmod-fou6 kmod-ipsec6 kmod-ip6-vti kmod-xfrm-interface; do
         grep -q "^CONFIG_PACKAGE_${package}=m$" "$config_path" || {
             echo "Optional IPv6 APK package is missing or not modular: ${package}" >&2
             return 1
