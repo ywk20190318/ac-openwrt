@@ -56,6 +56,24 @@ jobs:
             echo "BUILD_BRANCH=$BUILD_BRANCH"
           } >> "$GITHUB_ENV"
 
+      - name: 构建前静态预检
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "===== 检查构建脚本语法 ====="
+          for script in nn6000v2/scripts/*.sh; do
+            bash -n "$script"
+            echo "OK: $script"
+          done
+          echo "===== 检查设备配置与必要补丁文件 ====="
+          test -s "nn6000v2/configs/kernel/${DEVICE_MODEL}.config"
+          test -s "nn6000v2/configs/${DEVICE_MODEL}.ini"
+          test -s nn6000v2/patches/991_custom_settings
+          test -s nn6000v2/patches/992_set-wifi-uci.sh
+          test -s nn6000v2/patches/nss_diag.sh
+          grep -qx 'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_link_nn6000-v2=y' "nn6000v2/configs/kernel/${DEVICE_MODEL}.config"
+          echo "静态预检通过。"
+
       - name: 准备并检出 ImmortalWrt 源码
         shell: bash
         run: |
