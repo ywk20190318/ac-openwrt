@@ -13,6 +13,11 @@ on:
         required: false
         default: false
         type: boolean
+      preflight_only:
+        description: "仅运行源码 feeds、Kconfig 和设备配置预检，不进行固件编译。"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   actions: write
@@ -104,13 +109,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nn6000v2-ccache-${{ hashFiles('repo_flag', 'nn6000v2/configs/kernel/link_nn6000v2_immwrt.config') }}-
 
-      - name: 编译 NN6000 V2 固件
+      - name: 编译 NN6000 V2 固件（先执行 Kconfig 完整性预检）
         shell: bash
         run: |
           set -Eeuo pipefail
-          ./nn6000v2/scripts/build.sh "$DEVICE_MODEL"
+          if [[ "${{ inputs.preflight_only }}" == "true" ]]; then
+            ./nn6000v2/scripts/build.sh "$DEVICE_MODEL" debug
+          else
+            ./nn6000v2/scripts/build.sh "$DEVICE_MODEL"
+          fi
 
       - name: 检查固件产物
+        if: ${{ !inputs.preflight_only }}
         id: firmware
         shell: bash
         run: |
@@ -132,6 +142,7 @@ jobs:
           du -sh firmware
 
       - name: 输出编译环境信息
+        if: ${{ !inputs.preflight_only }}
         shell: bash
         run: |
           echo "===== CPU 信息 ====="
@@ -142,6 +153,7 @@ jobs:
           du -sh action_build/.ccache 2>/dev/null || true
 
       - name: 生成中文固件发布说明
+        if: ${{ !inputs.preflight_only }}
         shell: bash
         run: |
           {
@@ -184,6 +196,7 @@ jobs:
           } > release_body.txt
 
       - name: 发布固件
+        if: ${{ !inputs.preflight_only }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: nn6000v2-${{ env.BUILD_DATE }}
