@@ -152,7 +152,7 @@ QuickFile 上游包由 LuCI 前端和 Rust 后端组成，前端依赖 `luci-ngi
 
 ## 7. GitHub Actions 编译
 
-进入 [Actions 编译页面](https://github.com/ywk20190318/ac-openwrt/actions/workflows/nn6000v2_build.yml)，选择 **Run workflow**。
+进入 [Actions 编译页面](https://github.com/ywk20190318/ac-openwrt/actions/workflows/main.yml)，选择 **Run workflow**。
 
 | 输入项 | 建议值 | 说明 |
 |---|---|---|
