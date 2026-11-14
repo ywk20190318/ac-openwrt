@@ -86,8 +86,6 @@ fix_apk_pkg_version() {
 
 install_openwrt_packages() {
     ./scripts/feeds install -p openwrt_packages -f \
-        taskd luci-lib-xterm luci-lib-taskd \
-        luci-app-store luci-app-istorex \
         smartdns luci-app-smartdns luci-theme-argon luci-app-argon-config \
         luci-lib-docker luci-app-lucky luci-app-adguardhome \
         ghboost luci-app-ghboost \
