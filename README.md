@@ -39,6 +39,8 @@
 
 ### 不预装
 
+- iStoreOS / iStoreX / `istore` / `istorex` / `luci-app-istore` / `luci-app-istorex` / `luci-app-store`：明确禁用，不加入固件；构建脚本会在 Kconfig 解析后和最终 manifest 阶段双重检查。
+
 - 所有 `luci-app-*` 应用插件。
 - Docker/Dockerman、代理服务、广告过滤、网络加速、磁盘管理、文件共享、远程组网等可选服务应用。
 - 构建时不额外注入第三方插件 feeds，不克隆第三方插件源码，也不批量安装第三方 feed 中的全部软件包。
@@ -57,7 +59,6 @@
 | 插件 / 软件包 | 用途 | 当前状态 |
 |---|---|---|
 | `luci-app-quickfile` / `quickfile` | 文件管理 | 不预装 |
-| `luci-app-istorex` / `luci-app-store` | iStoreX / 应用商店 | 不预装 |
 | `luci-app-dockerman` / `dockerd` / `luci-lib-docker` | Docker 管理及运行时 | 不预装 |
 | `luci-app-lucky` / `lucky` | Lucky 网络工具 | 不预装 |
 | `luci-app-oaf` / `oaf` / `open-app-filter` | 应用过滤 | 不预装 |
@@ -87,7 +88,7 @@
 
 | 来源 | 主要对应项目 |
 |---|---|
-| [kenzok8/openwrt-packages](https://github.com/kenzok8/openwrt-packages) | iStoreX、QuickStart、SmartDNS、Argon、Lucky、AdGuardHome、Dockerman、QuickFile、Mini Disk Manager、GHBoost、OAF、Tailscale、ZeroTier 等 |
+| [kenzok8/openwrt-packages](https://github.com/kenzok8/openwrt-packages) | QuickStart、SmartDNS、Argon、Lucky、AdGuardHome、Dockerman、QuickFile、Mini Disk Manager、GHBoost、OAF、Tailscale、ZeroTier 等（本分支不接入该第三方 feed） |
 | [OpenWrt-Passwall/openwrt-passwall](https://github.com/Openwrt-Passwall/openwrt-passwall) | PassWall LuCI 插件 |
 | [OpenWrt-Passwall/openwrt-passwall-packages](https://github.com/Openwrt-Passwall/openwrt-passwall-packages) | PassWall 相关依赖包 |
 | [gdy666/luci-app-lucky](https://github.com/gdy666/luci-app-lucky) | Lucky |
