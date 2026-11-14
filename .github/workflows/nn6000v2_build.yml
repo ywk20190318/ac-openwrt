@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       kernel_patchver:
-        description: "Optional KERNEL_PATCHVER override (e.g. 6.6). Leave blank to use source default."
+        description: "可选：指定内核主次版本（例如 6.6）；留空则使用源码默认版本。"
         required: false
         default: ""
         type: string
       clean_ccache:
-        description: "Ignore previous ccache and start a fresh compiler cache"
+        description: "是否清空并重新建立编译缓存；默认关闭以复用缓存、缩短编译时间。"
         required: false
         default: false
         type: boolean
@@ -28,10 +28,10 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Checkout build scripts
+      - name: 检出设备构建脚本
         uses: actions/checkout@v4
 
-      - name: Initialize build environment
+      - name: 初始化编译环境
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -40,7 +40,7 @@ jobs:
           sudo apt-get install -y dos2unix libfuse-dev gh
           sudo timedatectl set-timezone Asia/Shanghai
 
-      - name: Set build metadata
+      - name: 设置构建信息
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -56,14 +56,14 @@ jobs:
             echo "BUILD_BRANCH=$BUILD_BRANCH"
           } >> "$GITHUB_ENV"
 
-      - name: Prepare source checkout
+      - name: 准备并检出 ImmortalWrt 源码
         shell: bash
         run: |
           set -Eeuo pipefail
           chmod +x nn6000v2/scripts/*.sh
           ./nn6000v2/scripts/pre_clone_action.sh "$DEVICE_MODEL"
 
-      - name: Apply optional kernel patch version
+      - name: 应用可选内核版本
         if: ${{ inputs.kernel_patchver != '' }}
         shell: bash
         env:
@@ -92,7 +92,7 @@ jobs:
           sed -i -E "s/^KERNEL_PATCHVER[:?+]?=.*/KERNEL_PATCHVER:=${KERNEL_PATCHVER}/" "$MAKEFILE"
           grep -n '^KERNEL_PATCHVER' "$MAKEFILE"
 
-      - name: Restore compiler cache
+      - name: 恢复编译缓存
         if: ${{ !inputs.clean_ccache }}
         uses: actions/cache@v4
         with:
@@ -101,13 +101,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nn6000v2-ccache-${{ hashFiles('repo_flag', 'nn6000v2/configs/kernel/link_nn6000v2_immwrt.config') }}-
 
-      - name: Build firmware
+      - name: 编译 NN6000 V2 固件
         shell: bash
         run: |
           set -Eeuo pipefail
           ./nn6000v2/scripts/build.sh "$DEVICE_MODEL"
 
-      - name: Validate firmware output
+      - name: 检查固件产物
         id: firmware
         shell: bash
         run: |
@@ -128,7 +128,7 @@ jobs:
           echo "IMAGE_COUNT=$IMAGE_COUNT" >> "$GITHUB_OUTPUT"
           du -sh firmware
 
-      - name: Machine information
+      - name: 输出编译环境信息
         shell: bash
         run: |
           echo "===== CPU ====="
@@ -138,32 +138,54 @@ jobs:
           echo "===== CCACHE ====="
           du -sh action_build/.ccache 2>/dev/null || true
 
-      - name: Prepare release notes
+      - name: 生成中文固件发布说明
         shell: bash
         run: |
           {
-            echo "NN6000V2 极度精简实用固件"
+            echo "# Link NN6000 V2（IPQ60xx）实用精简固件"
             echo
-            echo "- Device: ${DEVICE_MODEL}"
-            echo "- Source: ${BUILD_SRC}"
-            echo "- Branch: ${BUILD_BRANCH}"
-            echo "- Build: ${BUILD_DATE}"
-            echo "- Kernel: ${KVER}"
-            echo "- LAN: 10.0.0.1"
-            echo "- Original LuCI / DHCP / static leases: enabled"
-            echo "- Package manager: APK (not OPKG)"
-            echo "- APK feeds: NJU domestic mirror configured on first boot"
-            echo "- LuCI: Argon theme with Simplified Chinese language pack; default language zh_cn"
-            echo "- NN6000V2 tuning: CPU usage, temperature display, IRQ affinity and NSS diagnostics retained"
-            echo "- Firewall: firewall4 + native nftables; no legacy iptables stack is explicitly selected"
-            echo "- NSS / Wi-Fi / board drivers: retained"
-            echo "- QuickFile / Nginx / Docker / Dockerman / Podman: not included"
-            echo "- Extra service plugins / optional applications: not preinstalled"
-            echo "- OpenClash runtime kernel modules: kmod-nft-tproxy + kmod-tun included"
-            echo "- Proxy components: not preinstalled"
+            echo "## 构建信息"
+            echo "- 设备型号：${DEVICE_MODEL}"
+            echo "- 源码仓库：${BUILD_SRC}"
+            echo "- 源码分支：${BUILD_BRANCH}"
+            echo "- 编译时间：${BUILD_DATE}"
+            echo "- 内核版本：${KVER}"
+            echo
+            echo "## 系统配置"
+            echo "- 管理地址：10.0.0.1"
+            echo "- 包管理器：APK（不使用 OPKG）"
+            echo "- Web 管理：原版 LuCI + Argon 主题 + 简体中文语言"
+            echo "- 防火墙：firewall4 + nftables"
+            echo "- 无线：2.4GHz / 5GHz，默认 SSID 为 500/5，密码为 88888888"
+            echo "- PPPoE：默认账号为占位符，首次启动不会自动配置拨号"
+            echo "- NSS、无线和设备板级驱动：保留"
+            echo
+            echo "## 显式选择的主要软件包"
+            echo "- luci"
+            echo "- luci-theme-argon"
+            echo "- firewall4"
+            echo "- nftables"
+            echo "- nftables-json"
+            echo
+            echo "## 显式选择的内核模块包"
+            echo "- kmod-nft-tproxy（nftables TProxy）"
+            echo "- kmod-tun（TUN 虚拟网络设备）"
+            echo "- kmod-nft-fullcone"
+            echo "- kmod-nft-bridge"
+            echo "- kmod-tcp-bbr"
+            echo "- kmod-netlink-diag"
+            echo "- kmod-inet-diag"
+            echo "- kmod-tls"
+            echo
+            echo "## 精简说明"
+            echo "- 仅预留 OpenClash 所需内核模块，不预装 OpenClash 本体"
+            echo "- 不预装 Docker、Dockerman、Podman、QuickFile、Nginx、QuickStart、易有云等非必要服务"
+            echo "- 不额外预装第三方服务插件和可选应用"
+            echo
+            echo "注意：以上软件包列表为本分支显式选择项，不代表上游目标默认软件包的完整清单。内核模块必须与本次固件内核 ABI 匹配。"
           } > release_body.txt
 
-      - name: Publish firmware
+      - name: 发布固件
         uses: softprops/action-gh-release@v2
         with:
           tag_name: nn6000v2-${{ env.BUILD_DATE }}
