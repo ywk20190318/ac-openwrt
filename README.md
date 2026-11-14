@@ -97,6 +97,11 @@
 - 手动触发时可选择 `preflight_only`，先运行脚本语法、配置、内核补丁及 FullCone/LuCI prepare 检查，不执行完整编译。
 - 每次只构建带 WiFi 驱动的固件，不生成 `nowifi` 版本。
 
+### 虚拟网络设备清理
+
+固件构建时从 Qualcomm 默认包列表中移除 NSS GRE/EoGRE 管理模块，并禁用 Dummy、GRE、GRE6、Docker 与 Dockerman 相关包，避免默认创建 `dummy0`、`erspan0`、`docker0`。普通 Linux bridge、设备 LAN/WAN、IPv4/IPv6 基础网络和 SONiC FullCone 保留。
+
+
 ## 4. 已排除的插件与服务
 
 以下项目不进入固件，也不作为本设备的默认插件方案：
