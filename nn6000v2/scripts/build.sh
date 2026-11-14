@@ -70,14 +70,24 @@ grep -qx 'CONFIG_LUCI_LANG_zh_Hans=y' .config || {
 }
 echo "检查通过：已启用 APK 包管理器和 LuCI 简体中文语言。"
 
-# OpenClash needs both modules; fail during config validation if Kconfig drops either.
-for package in kmod-nft-tproxy kmod-tun; do
+# Validate every explicitly requested networking/kernel feature module.
+REQUIRED_KMODS=(
+    kmod-nft-tproxy
+    kmod-tun
+    kmod-nft-fullcone
+    kmod-nft-bridge
+    kmod-tcp-bbr
+    kmod-netlink-diag
+    kmod-inet-diag
+    kmod-tls
+)
+for package in "${REQUIRED_KMODS[@]}"; do
     grep -qx "CONFIG_PACKAGE_${package}=y" .config || {
-        echo "错误：OpenClash 依赖模块 ${package} 在 make defconfig 后未被选中。" >&2
+        echo "错误：必需内核模块 ${package} 在 make defconfig 后未被选中。" >&2
         exit 1
     }
 done
-echo "检查通过：已选择 OpenClash 所需的 nftables TProxy 和 TUN 内核模块。"
+echo "检查通过：8 个指定网络与内核功能模块均已选中。"
 
 if [[ "$BUILD_MOD" == "debug" ]]; then
     echo "调试模式：配置准备完成，按要求跳过实际编译。"
@@ -120,13 +130,13 @@ if [[ -z "$MANIFEST_FILE" ]]; then
     echo "错误：未生成固件软件包清单，无法验证 OpenClash 依赖模块。" >&2
     exit 1
 fi
-for package in kmod-nft-tproxy kmod-tun; do
+for package in "${REQUIRED_KMODS[@]}"; do
     if ! awk -v package="$package" '$1 == package { found=1 } END { exit !found }' "$MANIFEST_FILE"; then
-        echo "错误：最终固件软件包清单缺少 OpenClash 必需模块：$package" >&2
+        echo "错误：最终固件软件包清单缺少指定内核模块：$package" >&2
         exit 1
     fi
 done
-echo "检查通过：最终固件清单包含 kmod-nft-tproxy 和 kmod-tun。"
+echo "检查通过：最终固件清单包含全部 8 个指定内核模块。"
 if ! find "$FIRMWARE_DIR" -maxdepth 1 -type f | grep -q .; then
     echo "错误：编译流程结束，但未收集到任何固件产物。" >&2
     exit 1
