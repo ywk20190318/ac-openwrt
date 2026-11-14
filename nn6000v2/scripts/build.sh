@@ -130,40 +130,60 @@ verify_ipv6_packages_config() {
 
 preflight_sonic_fullcone() {
     local config_path="$BASE_PATH/../$BUILD_DIR/.config"
-    local fw4_patch="$BASE_PATH/../$BUILD_DIR/package/network/config/firewall4/patches/002-independent-ipv6.patch"
-    local luci_patch="$BASE_PATH/../$BUILD_DIR/feeds/luci/applications/luci-app-firewall/patches/002-independent-ipv6.patch"
+    local backend_dir="$BASE_PATH/../$BUILD_DIR/package/network/utils/fullconenat-sonic"
+    local luci_dir="$BASE_PATH/../$BUILD_DIR/package/emortal/luci-app-fullconenat-sonic"
+    local fw4_patch="$BASE_PATH/../$BUILD_DIR/package/network/config/firewall4/patches/004-independent-ipv6.patch"
     local required
 
+    grep -q '^CONFIG_PACKAGE_fullconenat-sonic=y$' "$config_path" || {
+        echo "The upstream SONiC FullCone backend package is not selected." >&2
+        return 1
+    }
+    grep -q '^CONFIG_PACKAGE_luci-app-fullconenat-sonic=y$' "$config_path" || {
+        echo "The SONiC FullCone LuCI package is not selected." >&2
+        return 1
+    }
+    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y$' "$config_path" || {
+        echo "kmod-nft-nat is required by the SONiC FullCone backend." >&2
+        return 1
+    }
+
+    [ -s "$backend_dir/Makefile" ] || {
+        echo "Missing upstream SONiC backend package Makefile." >&2
+        return 1
+    }
+    grep -q 'CONFIG_NF_NAT_FULLCONE=y' "$backend_dir/Makefile" || {
+        echo "SONiC backend Makefile does not enable CONFIG_NF_NAT_FULLCONE." >&2
+        return 1
+    }
+    [ -s "$luci_dir/Makefile" ] || {
+        echo "Missing upstream SONiC LuCI package Makefile." >&2
+        return 1
+    }
+
     for required in \
-        984-add-sonic-fullcone-support.patch \
-        986-add-sonic-fullcone-to-nft.patch \
-        987-sonic-fullcone-fix-races-and-drops.patch; do
-        [ -s "$BASE_PATH/patches/fullcone/kernel/$required" ] || {
-            echo "Missing SONiC FullCone kernel patch: $required" >&2
+        001-integrate-firewall-zones.patch \
+        002-disable-routing-nat-offload.patch; do
+        [ -s "$luci_dir/patches/$required" ] || {
+            echo "Missing upstream SONiC LuCI patch: $required" >&2
             return 1
         }
     done
-
-    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y$' "$config_path" || {
-        echo "kmod-nft-nat is required for SONiC FullCone." >&2
+    [ -s "$fw4_patch" ] && grep -q 'fullcone6' "$fw4_patch" || {
+        echo "Independent IPv6 FullCone firewall4 patch is missing or incomplete." >&2
+        return 1
+    }
+    [ -s "$BASE_PATH/patches/fullcone/luci-app-fullconenat-sonic/fullconenat-sonic.js" ] || {
+        echo "Independent IPv4/IPv6 LuCI controller is missing." >&2
         return 1
     }
 
     if grep -Eq '^CONFIG_PACKAGE_kmod-(nft-fullcone|nft-nat6)=y$' "$config_path"; then
-        echo "Obsolete standalone FullCone or invalid nft-nat6 package remains selected." >&2
+        echo "Obsolete standalone FullCone kmod remains selected." >&2
         return 1
     fi
 
-    [ -s "$fw4_patch" ] && grep -q 'fullcone6' "$fw4_patch" || {
-        echo "firewall4 patch lacks the independent IPv6 FullCone gate." >&2
-        return 1
-    }
-    [ -s "$luci_patch" ] && grep -q 'fullcone6' "$luci_patch" || {
-        echo "LuCI firewall patch lacks the independent IPv6 FullCone control." >&2
-        return 1
-    }
-
-    echo "SONiC FullCone IPv4/IPv6 independent-gate preflight passed."
+    echo "Upstream SONiC FullCone backend and independent IPv4/IPv6 LuCI preflight passed."
 }
 apply_config() {
     \cp -f "$CONFIG_FILE" "$BASE_PATH/../$BUILD_DIR/.config"
@@ -267,7 +287,8 @@ make target/linux/prepare
 make package/libs/libnftnl/prepare
 make package/network/utils/nftables/prepare
 make package/network/config/firewall4/prepare
-make package/feeds/luci/luci-app-firewall/prepare
+make package/network/utils/fullconenat-sonic/prepare
+make package/emortal/luci-app-fullconenat-sonic/prepare
 
 if [[ $Build_Mod == "debug" ]]; then
     exit 0
