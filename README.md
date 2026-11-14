@@ -99,6 +99,10 @@ QuickFile 上游包由 LuCI 前端和 Rust 后端组成，前端依赖 `luci-ngi
 | kmod-fs-ext4 / kmod-fs-vfat / kmod-fs-exfat | 常见 Linux、FAT 与 exFAT 磁盘格式 |
 | kmod-fs-ntfs3 / kmod-fs-f2fs / kmod-fs-xfs | NTFS3、F2FS 与 XFS 文件系统 |
 
+
+
+FullCone NAT 已设置为首次启动默认启用：全局开启，并对所有 `masq=1` 的防火墙区域设置 `fullcone=1`。这只控制路由器本机的 NAT 行为，不能绕过运营商 CGNAT、上级光猫或网络策略，因此不能保证外网检测一定显示 NAT1。
+
 ### OpenClash 说明
 
 本固件配置预留并要求包含以下模块：
