@@ -19,7 +19,7 @@ Subject: [PATCH] firewall4: make IPv4 and IPv6 FullCone gates independent
  			fullcone: [ "bool" ],
 +			fullcone6: [ "bool" ],
  			fullcone_proto: [ "protocol", null, PARSE_LIST | FLATTEN_LIST ],
-@@ -2168,2 +2170,3 @@
+@@ -2168,1 +2168,2 @@
 -		zone.fullcone = !!(this.state.defaults.fullcone && zone.fullcone);
 +		zone.fullcone = !!(this.state.defaults.fullcone && zone.fullcone);
 +		zone.fullcone6 = !!(this.state.defaults.fullcone6 && zone.fullcone6);
@@ -30,6 +30,6 @@ Subject: [PATCH] firewall4: make IPv4 and IPv6 FullCone gates independent
 +				this.warn_section(data, "option 'fullcone_proto' lists no applicable protocol, disabling fullcone for this zone");
  				zone.fullcone = false;
 +				zone.fullcone6 = false;
-@@ -2191,3 +2195,2 @@
+@@ -2191,2 +2195,1 @@
  		zone.fullcone_proto = uniq(fullcone_proto);
 -		zone.fullcone6 = zone.fullcone;
