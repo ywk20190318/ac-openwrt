@@ -302,10 +302,6 @@ fi
 make download -j$(($(nproc) * 2))
 make -j$(($(nproc) + 1)) || make -j1 V=s
 
-if [[ -d action_build ]]; then
-    make clean
-fi
-
 # Publish only the Wi-Fi-enabled build.
 FIRMWARE_DIR="$BASE_PATH/../firmware"
 \rm -rf "$FIRMWARE_DIR"
@@ -319,6 +315,3 @@ fi
 
 echo "Wi-Fi-enabled firmware copied to: $FIRMWARE_DIR"
 
-if [[ -d action_build ]]; then
-    make clean
-fi
