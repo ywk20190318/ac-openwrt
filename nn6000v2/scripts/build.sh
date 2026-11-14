@@ -178,6 +178,23 @@ preflight_sonic_fullcone() {
         return 1
     }
 
+    grep -Fq 'if (defs.fullcone || defs.fullcone6)' "$fw4_patch" || {
+        echo "FullCone capability probing must cover both IPv4 and IPv6." >&2
+        return 1
+    }
+    grep -Fq 'tools.fullconenat-sonic' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI firewall page does not load the independent FullCone controls." >&2
+        return 1
+    }
+    grep -Fq 'fullcone.addGlobal(s)' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI global IPv4/IPv6 FullCone controls are not integrated." >&2
+        return 1
+    }
+    grep -Fq 'fullcone.addZone(s)' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI per-zone IPv4/IPv6 FullCone controls are not integrated." >&2
+        return 1
+    }
+
     if grep -Eq '^CONFIG_PACKAGE_kmod-(nft-fullcone|nft-nat6)=y$' "$config_path"; then
         echo "Obsolete standalone FullCone kmod remains selected." >&2
         return 1
