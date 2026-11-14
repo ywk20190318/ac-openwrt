@@ -192,7 +192,7 @@ jobs:
             echo "- 构建脚本逐项检查最终 manifest，缺少任一显式选择模块即判定失败"
             echo
             echo "## 精简说明"
-            echo "- 保留全部显式选择的内核模块，不预装任何 luci-app 插件"
+            echo "- 保留全部显式选择的内核模块；不预装第三方可选服务插件，原版 LuCI 集合自带的基础管理页面保留"
             echo "- 不预装 Docker、Dockerman、Podman、QuickFile、Nginx、QuickStart、易有云等非必要服务"
             echo "- 不额外预装第三方服务插件和可选应用"
             echo
