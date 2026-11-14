@@ -18,6 +18,7 @@
 | **WiFi 名称**  | `500/5`     | (nn6000v2/patches/992\_network\_config.sh) |
 | **WiFi 密码**  | `147258369` | 无线密码                                     |
 | **WiFi 状态**  | **禁用**      | 首次启动需手动开启                                |
+| **Web 管理服务** | `nginx` | LuCI 由 Nginx 提供服务，移除 uhttpd |
 | **2.4G 信道** | `auto` | 自动选择信道 |
 | **5G 信道** | `157` | 固定信道 157 |
 | **PPPoE 账号** | **未配置**     | (nn6000v2/patches/992\_network\_config.sh)    |
