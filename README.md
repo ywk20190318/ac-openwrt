@@ -128,22 +128,21 @@ OpenClash 本体从官方 `vernesong/OpenClash` 仓库固定提交源码并随�
 
 ## 5. 保留与精简策略
 
-### 保留
+### 保留并默认预装
 
 - VIKINGYFY/ImmortalWrt 原有 NN6000 V2 目标配置。
 - 设备所需 NSS、Wi-Fi、IPQ60xx 板级驱动及目标默认软件包。
 - 原版 LuCI、Argon 主题、简体中文语言选择。
-- firewall4 + nftables。
-- 上述显式选择的网络诊断、TCP 和代理相关内核模块。
+- OpenClash、QuickFile、LuCI Diskman 分区管理。
+- Nginx/uWSGI Web 管理栈、firewall4 + nftables、FullCone NAT。
+- 已选定的网络、隧道、USB、存储和文件系统内核模块。
 
 ### 不预装
 
-以下应用或服务不作为本分支默认预装内容（OpenClash、QuickFile、Diskman 除外，三者均默认内置）：
-
-- 其他代理客户端（OpenClash 已默认预装）。
 - Docker、Dockerman、Podman。
-- QuickStart、易有云等非必要服务。QuickFile 与其必需的 Nginx 组件现已纳入本次固件。
-- 额外的第三方服务插件、可选应用和存储工具。
+- Passwall、AdGuardHome、SmartDNS、Tailscale、ZeroTier 等其他应用服务。
+- QuickStart、易有云等非必要服务。
+- 其他无关的第三方应用插件。
 
 精简原则：不为了消除编译警告而强行加入无关应用或依赖。可选功能优先在系统运行后通过匹配的软件源安装；若软件源没有适配包，则不能假定可以直接安装。
 
