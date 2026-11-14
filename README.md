@@ -78,7 +78,9 @@ LuCI 简体中文通过 CONFIG_LUCI_LANG_zh_Hans=y 选择，由 LuCI 构建系�
 
 ### 3.3 分区管理、QuickFile 与外接存储支持
 
-分区管理使用 `luci-app-diskman`，并编入 `parted`、`smartmontools`、`blkid`、`e2fsprogs` 等基础工具；Btrfs、NTFS 等可选功能按配置启用。Diskman 可执行分区和格式化操作，使用前务必确认磁盘设备，避免误操作数据。\n\nQuickFile 上游包由 LuCI 前端和 Rust 后端组成，前端依赖 `luci-nginx` 与 `quickfile`；上游说明明确要求 Nginx 反向代理。因此本次不是单独塞入一个 LuCI 插件，而是同时编译 Nginx、uWSGI 和 LuCI-Nginx 运行组件。QuickFile 源码固定到上游提交 `ef2ca5d16ad1156539930d8763c3069f6ac4eb12`，避免每次构建自动漂移。
+分区管理使用 `luci-app-diskman`，并编入 `parted`、`smartmontools`、`blkid`、`e2fsprogs` 等基础工具；Btrfs、NTFS 等可选功能按配置启用。Diskman 可执行分区和格式化操作，使用前务必确认磁盘设备，避免误操作数据。
+
+QuickFile 上游包由 LuCI 前端和 Rust 后端组成，前端依赖 `luci-nginx` 与 `quickfile`；上游说明明确要求 Nginx 反向代理。因此本次不是单独塞入一个 LuCI 插件，而是同时编译 Nginx、uWSGI 和 LuCI-Nginx 运行组件。QuickFile 源码固定到上游提交 `ef2ca5d16ad1156539930d8763c3069f6ac4eb12`，避免每次构建自动漂移。
 
 外接磁盘支持包含 USB mass-storage/UAS、USB2/USB3 主机控制器，以及 ext4、FAT/VFAT、exFAT、NTFS3、F2FS、XFS 文件系统模块。另编入 block-mount、NTFS3 挂载工具、USB 识别和分区/文件系统维护工具。是否自动挂载仍由运行时挂载配置决定；编入驱动不等于自动格式化或改动磁盘。
 
