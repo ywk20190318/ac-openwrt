@@ -3,8 +3,8 @@
 # kmods are generated from the exact kernel package version installed here.
 set -eu
 
-APK_MIRROR="\${APK_MIRROR:-https://downloads.immortalwrt.org/snapshots}"
-KMODS_MIRROR="\${KMODS_MIRROR:-https://downloads.immortalwrt.org/snapshots}"
+APK_MIRROR="${APK_MIRROR:-https://downloads.immortalwrt.org/snapshots}"
+KMODS_MIRROR="${KMODS_MIRROR:-https://downloads.immortalwrt.org/snapshots}"
 TARGET="qualcommax/ipq60xx"
 DB="/lib/apk/db/installed"
 
@@ -25,10 +25,10 @@ case "$KV" in
     *~*-r*) ;;
     *) fail "unrecognized kernel package version format: $KV" ;;
 esac
-ver="\${KV%%~*}"
-tail="\${KV#*~}"
-magic="\${tail%-r*}"
-rel="\${tail##*-r}"
+ver="${KV%%~*}"
+tail="${KV#*~}"
+magic="${tail%-r*}"
+rel="${tail##*-r}"
 [ -n "$ver" ] && [ -n "$magic" ] && [ -n "$rel" ] || fail "kernel metadata is incomplete"
 case "$ver$magic$rel" in
     *[!A-Za-z0-9._+-]*) fail "kernel metadata contains unsafe characters" ;;
