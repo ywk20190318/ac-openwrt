@@ -3,10 +3,10 @@ Subject: [PATCH] firewall4: make IPv4 and IPv6 FullCone gates independent
 
 --- a/root/usr/share/ucode/fw4.uc
 +++ b/root/usr/share/ucode/fw4.uc
-@@ -2049,1 +2050,2 @@
+@@ -2051,1 +2051,2 @@
 +			fullcone6: [ "bool", "0" ],
  			input: [ "policy", "drop" ],
-@@ -2082,4 +2082,5 @@
+@@ -2085,4 +2086,5 @@
 -		if (defs.fullcone) {
 +		if (defs.fullcone || defs.fullcone6) {
  			if (!nft_try_fullcone()) {
@@ -14,22 +14,22 @@ Subject: [PATCH] firewall4: make IPv4 and IPv6 FullCone gates independent
 +				delete defs.fullcone6;
 -				warn("fullcone expression not available, disabling fullcone globally\\n");
 +				warn("fullcone expression not available, disabling IPv4 and IPv6 fullcone globally\\n");
-@@ -2118,3 +2119,4 @@
+@@ -2119,3 +2121,4 @@
  			masq6: [ "bool" ],
  			fullcone: [ "bool" ],
 +			fullcone6: [ "bool" ],
  			fullcone_proto: [ "protocol", null, PARSE_LIST | FLATTEN_LIST ],
-@@ -2168,1 +2168,2 @@
+@@ -2182,1 +2185,2 @@
 -		zone.fullcone = !!(this.state.defaults.fullcone && zone.fullcone);
 +		zone.fullcone = !!(this.state.defaults.fullcone && zone.fullcone);
 +		zone.fullcone6 = !!(this.state.defaults.fullcone6 && zone.fullcone6);
-@@ -2184,3 +2187,4 @@
+@@ -2198,3 +2202,4 @@
 -			if (zone.fullcone && !length(fullcone_proto)) {
 -				this.warn_section(data, "option 'fullcone_proto' lists no applicable protocol, disabling fullcone");
 +			if ((zone.fullcone || zone.fullcone6) && !length(fullcone_proto)) {
 +				this.warn_section(data, "option 'fullcone_proto' lists no applicable protocol, disabling fullcone for this zone");
  				zone.fullcone = false;
 +				zone.fullcone6 = false;
-@@ -2191,2 +2195,1 @@
+@@ -2204,2 +2209,1 @@
  		zone.fullcone_proto = uniq(fullcone_proto);
 -		zone.fullcone6 = zone.fullcone;
