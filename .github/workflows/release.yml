@@ -108,6 +108,7 @@ jobs:
             'CONFIG_PACKAGE_kmod-wireguard=m' \
             'CONFIG_PACKAGE_wireguard-tools=m' \
             'CONFIG_PACKAGE_luci-proto-relay=m' \
+            'CONFIG_PACKAGE_kmod-dummy=n' \
             'CONFIG_PACKAGE_kmod-gre=n' \
             'CONFIG_PACKAGE_kmod-gre6=n' \
             'CONFIG_PACKAGE_kmod-qca-nss-drv-gre=n' \
