@@ -178,7 +178,7 @@ jobs:
             echo "- kmod-tls"
             echo
             echo "## 精简说明"
-            echo "- 仅预留 OpenClash 所需内核模块，不预装 OpenClash 本体"
+            echo "- 保留全部显式选择的内核模块，不预装任何 luci-app 插件"
             echo "- 不预装 Docker、Dockerman、Podman、QuickFile、Nginx、QuickStart、易有云等非必要服务"
             echo "- 不额外预装第三方服务插件和可选应用"
             echo
