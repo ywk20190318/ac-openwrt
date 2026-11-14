@@ -40,6 +40,13 @@ jobs:
           grep -q 'remove_virtual_network_device_defaults' nn6000v2/scripts/build.sh
           grep -q 'verify_virtual_interface_packages' nn6000v2/scripts/build.sh
           grep -q 'verify_virtual_interface_kernel_config' nn6000v2/scripts/build.sh
+          grep -q 'verify_core_kernel_filesystems' nn6000v2/scripts/build.sh
+          grep -q 'src-git[[:space:]]+video' nn6000v2/scripts/feeds.sh
+          grep -q 'luci-app-fwknopd' nn6000v2/scripts/feeds.sh
+          if grep -q '^CONFIG_PACKAGE_kmod-fs-overlay=' "$CONFIG"; then
+            echo "OverlayFS must be verified as a built-in kernel feature, not a kmod package."
+            exit 1
+          fi
 
       - name: Install build dependencies
         run: |
