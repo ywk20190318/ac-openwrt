@@ -26,6 +26,43 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Fast source and package checks
+        run: |
+          set -euo pipefail
+          for script in nn6000v2/scripts/*.sh nn6000v2/patches/992_network_config.sh; do bash -n "$script"; done
+          sh -n nn6000v2/patches/994_set_apk_repos
+          CONFIG=nn6000v2/configs/link_nn6000v2_immwrt.config
+          if grep -Eiq '^CONFIG_PACKAGE_[^=]*(docker|dockerman|kmod-dummy|kmod-gre|kmod-gre6|qca-nss-drv-gre|qca-nss-drv-eogremgr)[^=]*=(y|m)        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo bash -c 'bash <(curl -fsSL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+          sudo -E apt-get install -y dos2unix libfuse-dev
+
+      - name: Run configuration and patch preflight only
+        run: |
+          set -euo pipefail
+          chmod +x nn6000v2/scripts/*.sh
+          ./nn6000v2/scripts/build.sh link_nn6000v2_immwrt debug
+ "$CONFIG"; then
+            echo "Forbidden virtual-interface package is selected."
+            grep -Ein '^CONFIG_PACKAGE_[^=]*(docker|dockerman|kmod-dummy|kmod-gre|kmod-gre6|qca-nss-drv-gre|qca-nss-drv-eogremgr)[^=]*=(y|m)        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo bash -c 'bash <(curl -fsSL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+          sudo -E apt-get install -y dos2unix libfuse-dev
+
+      - name: Run configuration and patch preflight only
+        run: |
+          set -euo pipefail
+          chmod +x nn6000v2/scripts/*.sh
+          ./nn6000v2/scripts/build.sh link_nn6000v2_immwrt debug
+ "$CONFIG"
+            exit 1
+          fi
+          grep -q 'remove_virtual_network_device_defaults' nn6000v2/scripts/build.sh
+          grep -q 'verify_virtual_interface_packages' nn6000v2/scripts/build.sh
+          grep -q 'verify_virtual_interface_kernel_config' nn6000v2/scripts/build.sh
+
       - name: Install build dependencies
         run: |
           set -euxo pipefail
