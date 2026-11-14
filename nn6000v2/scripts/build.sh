@@ -75,7 +75,7 @@ echo "检查通过：已启用 APK 包管理器和 LuCI 简体中文语言。"
 REQUIRED_KMODS=()
 while IFS= read -r package; do
     [[ -n "$package" ]] && REQUIRED_KMODS+=("$package")
-done < <(sed -n 's/^CONFIG_PACKAGE_\\(kmod-[^=]*\\)=y$/\\1/p' .config | sort -u)
+done < <(sed -n 's/^CONFIG_PACKAGE_\(kmod-[^=]*\)=y$/\1/p' .config | sort -u)
 
 if [[ ${#REQUIRED_KMODS[@]} -eq 0 ]]; then
     echo "错误：配置中没有选中任何内核模块，拒绝继续构建。" >&2
