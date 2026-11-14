@@ -77,7 +77,7 @@ echo "检查通过：QuickStart 和 iStoreOS 商店相关组件均已禁用。"
 REQUESTED_PACKAGES=()
 while IFS= read -r package; do
     [[ -n "$package" ]] && REQUESTED_PACKAGES+=("$package")
-done < <(sed -n 's/^CONFIG_PACKAGE_\\([^=]*\\)=y$/\\1/p' "$CONFIG_FILE" | sort -u)
+done < <(sed -n 's/^CONFIG_PACKAGE_\([^=]*\)=y$/\1/p' "$CONFIG_FILE" | sort -u)
 
 MISSING_PACKAGES=()
 for package in "${REQUESTED_PACKAGES[@]}"; do
@@ -87,7 +87,7 @@ for package in "${REQUESTED_PACKAGES[@]}"; do
 done
 if [[ ${#MISSING_PACKAGES[@]} -gt 0 ]]; then
     echo "错误：以下设备配置中明确选择的软件包未通过 make defconfig，停止构建：" >&2
-    printf '  - %s\\n' "${MISSING_PACKAGES[@]}" >&2
+    printf '  - %s\n' "${MISSING_PACKAGES[@]}" >&2
     exit 1
 fi
 echo "检查通过：设备配置中 ${#REQUESTED_PACKAGES[@]} 个显式软件包选择全部保留。"
@@ -178,8 +178,8 @@ for package in "${REQUIRED_KMODS[@]}"; do
     fi
 done
 if [[ ${#MISSING_KMODS[@]} -gt 0 ]]; then
-    printf '错误：最终固件缺少以下已选择内核模块：\\n' >&2
-    printf '  - %s\\n' "${MISSING_KMODS[@]}" >&2
+    printf '错误：最终固件缺少以下已选择内核模块：\n' >&2
+    printf '  - %s\n' "${MISSING_KMODS[@]}" >&2
     exit 1
 fi
 echo "检查通过：最终固件清单包含全部 ${#REQUIRED_KMODS[@]} 个显式选择的内核模块。"
