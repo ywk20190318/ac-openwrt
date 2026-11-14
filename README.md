@@ -18,6 +18,8 @@
 | **WiFi 名称**  | `500/5`     | (nn6000v2/patches/992\_network\_config.sh) |
 | **WiFi 密码**  | `147258369` | 无线密码                                     |
 | **WiFi 状态**  | **禁用**      | 首次启动需手动开启                                |
+| **2.4G 信道** | `auto` | 自动选择信道 |
+| **5G 信道** | `157` | 固定信道 157 |
 | **PPPoE 账号** | **未配置**     | (nn6000v2/patches/992\_network\_config.sh)    |
 | **PPPoE 状态** | **自动拨号**    | 配置账号密码后自动拨号，无需手动开启                                 |
 
@@ -33,6 +35,20 @@
 | **luci-app-quickfile**   | 文件管理          |
 | **luci-app-p910nd**      | USB 打印机共享     |
 | **luci-app-hd-idle**     | 硬盘休眠          |
+
+***
+
+### 2.3 已移除的 iStore 组件
+
+以下 iStore 商店及其专用辅助包不再安装：
+
+- `luci-app-store`
+- `luci-app-istorex`
+- `taskd`
+- `luci-lib-taskd`
+- `luci-lib-xterm`
+
+Docker 管理相关组件保留；其中 dockerd 使用 iStoreOS 仓库的构建版本，但它是 Docker 后端，不是 iStore 商店插件，也不是上述商店辅助依赖。
 
 ***
 
@@ -61,16 +77,4 @@ Link_NN6000V2/
         ├── system.sh      # 系统配置脚本
         └── update.sh      # 更新脚本
 ```
-
-***
-
-## ImmortalWrt
-
-<div align="center">
-
-![ImmortalWrt](immortalwrt.png)
-
-</div>
-
-***
 
