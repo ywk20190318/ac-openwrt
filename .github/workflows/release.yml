@@ -19,6 +19,14 @@ on:
         default: false
         type: boolean
 
+  workflow_run:
+    workflows:
+      - NN6000V2 Preflight Only
+    types:
+      - completed
+    branches:
+      - main
+
 permissions:
   contents: write
   actions: write
