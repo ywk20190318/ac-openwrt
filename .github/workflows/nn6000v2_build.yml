@@ -159,6 +159,7 @@ jobs:
             echo "- NSS / Wi-Fi / board drivers: retained"
             echo "- QuickFile / Nginx / Docker / Dockerman / Podman: not included"
             echo "- Extra service plugins / optional applications: not preinstalled"
+            echo "- OpenClash runtime kernel modules: kmod-nft-tproxy + kmod-tun included"
             echo "- Proxy components: not preinstalled"
           } > release_body.txt
 
