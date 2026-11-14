@@ -1,43 +1,61 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
 
 update_feeds() {
-    local feeds_path="$BUILD_DIR/$FEEDS_CONF"
-
+    local FEEDS_PATH="$BUILD_DIR/$FEEDS_CONF"
     if [[ -f "$BUILD_DIR/feeds.conf" ]]; then
-        feeds_path="$BUILD_DIR/feeds.conf"
+        FEEDS_PATH="$BUILD_DIR/feeds.conf"
     fi
 
-    if [[ ! -f "$feeds_path" ]]; then
-        echo "错误：找不到 feeds 配置：$feeds_path" >&2
-        return 1
+    sed -i '/^src-link/d' "$FEEDS_PATH"
+
+    if ! grep -q "openwrt-packages" "$FEEDS_PATH"; then
+        [ -z "$(tail -c 1 "$FEEDS_PATH")" ] || echo "" >>"$FEEDS_PATH"
+        echo "src-git openwrt_packages https://github.com/kenzok8/openwrt-packages.git" >>"$FEEDS_PATH"
     fi
 
-    # Remove obsolete local links / retired PassWall feed entries only.
-    sed -i '/^src-link[[:space:]]/d' "$feeds_path"
-    sed -i '/passwall_packages/d' "$feeds_path"
-    sed -i '/passwall-packages/d' "$feeds_path"
+    if ! grep -q "openwrt-passwall-packages" "$FEEDS_PATH"; then
+        echo "src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git;main" >>"$FEEDS_PATH"
+    fi
 
-    # Keep the source's standard official feeds; do not inject third-party feeds.
-    if [[ ! -f "$BUILD_DIR/include/bpf.mk" ]]; then
+    if ! grep -q "Openwrt-Passwall/openwrt-passwall.git" "$FEEDS_PATH"; then
+        echo "src-git passwall https://github.com/Openwrt-Passwall/openwrt-passwall.git;main" >>"$FEEDS_PATH"
+    fi
+
+    if [ ! -f "$BUILD_DIR/include/bpf.mk" ]; then
         touch "$BUILD_DIR/include/bpf.mk"
     fi
 
-    echo "===== 更新源码默认 feeds ====="
-    ./scripts/feeds clean
-    ./scripts/feeds update -a
+    echo "=== 开始执行 feeds update ==="
+    
+    # 执行 feeds update
+    (cd "$BUILD_DIR" && ./scripts/feeds clean && ./scripts/feeds update -a)
+    
+    echo "=== feeds update 完成 ==="
 }
 
 install_feeds() {
-    cd "$BUILD_DIR"
-
-    echo "===== 安装 LuCI、Nginx 和 QuickFile ====="
+    cd "$BUILD_DIR" || exit 1
+    
+    echo "=== 开始安装 feeds 包 ==="
+    
+    # 先更新 feeds 索引
+    echo "更新 feeds 索引..."
     ./scripts/feeds update -i
-    install_luci_base
-    install_nginx_packages
-    install_quickfile
-    install_openclash
-    install_diskman
-
-    echo "===== OpenClash、QuickFile、Diskman、Nginx 和存储支持组件源码准备完成 ====="
+    
+    # 先安装 openwrt-packages 中的包
+    echo "安装 openwrt-packages 包..."
+    install_openwrt_packages
+    
+    # 安装其他 feeds 的包
+    for dir in "$BUILD_DIR"/feeds/*; do
+        if [ -d "$dir" ] && [[ ! "$dir" == *.tmp ]] && [[ ! "$dir" == *.index ]] && [[ ! "$dir" == *.targetindex ]]; then
+            local feed_name=$(basename "$dir")
+            if [[ "$feed_name" != "openwrt_packages" ]]; then
+                ./scripts/feeds install -f -ap "$feed_name"
+            fi
+        fi
+    done
+    
+    echo "=== feeds 包安装完成 ==="
+    cd - >/dev/null || exit 1
 }
