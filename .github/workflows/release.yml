@@ -83,32 +83,38 @@ jobs:
             echo "Removed or invalid package remains selected."
             exit 1
           fi
-          for item in
-            'CONFIG_PACKAGE_kmod-ath=y'
-            'CONFIG_PACKAGE_kmod-ath11k=y'
-            'CONFIG_PACKAGE_kmod-ath11k-ahb=y'
-            'CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y'
-            'CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y'
-            'CONFIG_PACKAGE_luci-nginx=y'
-            'CONFIG_PACKAGE_nginx-ssl=y'
-            'CONFIG_PACKAGE_dnsmasq-full=y'
-            'CONFIG_PACKAGE_kmod-fs-f2fs=y'
-            'CONFIG_PACKAGE_kmod-fs-squashfs=y'
-            'CONFIG_PACKAGE_kmod-fs-overlay=y'
-            'CONFIG_PACKAGE_fullconenat-sonic=y'
-            'CONFIG_PACKAGE_luci-app-fullconenat-sonic=y'
-            'CONFIG_IPV6=y'
-            'CONFIG_PACKAGE_kmod-nf-nat6=y'
-            'CONFIG_PACKAGE_kmod-nf-log6=y'
-            'CONFIG_PACKAGE_kmod-nf-reject6=y'
-            'CONFIG_PACKAGE_kmod-ip6tables=m'
-            'CONFIG_PACKAGE_kmod-ip6-tunnel=m'
-            'CONFIG_PACKAGE_kmod-sit=m'
-            'CONFIG_PACKAGE_kmod-gre6=m'
-            'CONFIG_PACKAGE_kmod-fou6=m'
-            'CONFIG_PACKAGE_kmod-wireguard=m'
-            'CONFIG_PACKAGE_wireguard-tools=m'
-            'CONFIG_PACKAGE_luci-proto-relay=m'
+          for item in \
+            'CONFIG_PACKAGE_kmod-ath=y' \
+            'CONFIG_PACKAGE_kmod-ath11k=y' \
+            'CONFIG_PACKAGE_kmod-ath11k-ahb=y' \
+            'CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y' \
+            'CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y' \
+            'CONFIG_PACKAGE_luci-nginx=y' \
+            'CONFIG_PACKAGE_nginx-ssl=y' \
+            'CONFIG_PACKAGE_dnsmasq-full=y' \
+            'CONFIG_PACKAGE_kmod-fs-f2fs=y' \
+            'CONFIG_PACKAGE_kmod-fs-squashfs=y' \
+            'CONFIG_PACKAGE_kmod-fs-overlay=y' \
+            'CONFIG_PACKAGE_fullconenat-sonic=y' \
+            'CONFIG_PACKAGE_luci-app-fullconenat-sonic=y' \
+            'CONFIG_IPV6=y' \
+            'CONFIG_PACKAGE_kmod-nf-nat6=y' \
+            'CONFIG_PACKAGE_kmod-nf-log6=y' \
+            'CONFIG_PACKAGE_kmod-nf-reject6=y' \
+            'CONFIG_PACKAGE_kmod-ip6tables=m' \
+            'CONFIG_PACKAGE_kmod-ip6-tunnel=m' \
+            'CONFIG_PACKAGE_kmod-sit=m' \
+            'CONFIG_PACKAGE_kmod-fou6=m' \
+            'CONFIG_PACKAGE_kmod-wireguard=m' \
+            'CONFIG_PACKAGE_wireguard-tools=m' \
+            'CONFIG_PACKAGE_luci-proto-relay=m' \
+            'CONFIG_PACKAGE_kmod-gre=n' \
+            'CONFIG_PACKAGE_kmod-gre6=n' \
+            'CONFIG_PACKAGE_kmod-qca-nss-drv-gre=n' \
+            'CONFIG_PACKAGE_kmod-qca-nss-drv-eogremgr=n' \
+            'CONFIG_PACKAGE_docker=n' \
+            'CONFIG_PACKAGE_dockerd=n' \
+            'CONFIG_PACKAGE_luci-app-dockerman=n' \
           do grep -qx "$item" "$CONFIG" || { echo "Missing expected config: $item"; exit 1; }; done
           grep -q 'verify_core_firmware_packages' nn6000v2/scripts/build.sh
           grep -q 'verify_no_docker_and_modular_packages' nn6000v2/scripts/build.sh
