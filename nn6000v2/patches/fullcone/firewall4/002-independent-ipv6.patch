@@ -3,7 +3,7 @@ Subject: [PATCH] firewall4: make IPv4 and IPv6 FullCone gates independent
 
 --- a/root/usr/share/ucode/fw4.uc
 +++ b/root/usr/share/ucode/fw4.uc
-@@ -2047,1 +2047,2 @@
+@@ -2049,1 +2050,2 @@
 +			fullcone6: [ "bool", "0" ],
  			input: [ "policy", "drop" ],
 @@ -2082,4 +2082,5 @@
