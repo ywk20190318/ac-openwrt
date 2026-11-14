@@ -81,28 +81,6 @@ verify_nginx_webserver_config() {
 }
 
 
-disable_firewall4_nft_offload_dependency() {
-    local firewall4_makefile="$BASE_PATH/../$BUILD_DIR/package/network/config/firewall4/Makefile"
-
-    [ -f "$firewall4_makefile" ] || {
-        echo "Missing firewall4 Makefile: $firewall4_makefile" >&2
-        return 1
-    }
-
-    # firewall4 works without nftables flow-offload support. Keep the kmod
-    # available as a separate APK, but do not pull it into the base firmware.
-    if grep -q '+kmod-nft-offload' "$firewall4_makefile"; then
-        sed -i 's/[[:space:]]+kmod-nft-offload//g' "$firewall4_makefile"
-    fi
-
-    if grep -q '+kmod-nft-offload' "$firewall4_makefile"; then
-        echo "firewall4 still hard-depends on kmod-nft-offload." >&2
-        return 1
-    fi
-
-    echo "Removed firewall4 hard dependency on nft-offload; optional kmod remains available as APK."
-}
-
 remove_virtual_network_device_defaults() {
     local target_mk="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/Makefile"
     local tmp_file="${target_mk}.tmp"
@@ -441,7 +419,6 @@ fi
 "$BASE_PATH/scripts/update.sh" "$REPO_URL" "$REPO_BRANCH" "$BUILD_DIR" "$COMMIT_HASH"
 
 remove_virtual_network_device_defaults
-disable_firewall4_nft_offload_dependency
 
 apply_config
 fix_netfilter_kmod_clash
