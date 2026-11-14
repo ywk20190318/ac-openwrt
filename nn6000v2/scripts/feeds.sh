@@ -55,8 +55,7 @@ install_feeds() {
     
     # These unused feed packages contain known self-referential Kconfig choices.
     # Remove their feed links so they cannot poison package metadata/defconfig.
-    find "$BUILD_DIR/package/feeds" -mindepth 2 -maxdepth 2 \\
-        \( -name "fwknop" -o -name "luci-app-fwknopd" -o -name "squeezelite" \) \\
+    find "$BUILD_DIR/package/feeds" -mindepth 2 -maxdepth 2 \( -name "fwknop" -o -name "luci-app-fwknopd" -o -name "squeezelite" \) -exec rm -rf {} +
         -exec rm -rf {} +
     echo "Removed unused fwknop and squeezelite packages with recursive Kconfig dependencies."
 
