@@ -31,11 +31,14 @@ env:
 
 jobs:
   build:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_commit.message, '[build-firmware]')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
       - name: Checkout build scripts
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Prepare build environment
         run: |
