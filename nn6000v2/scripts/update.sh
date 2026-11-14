@@ -1,62 +1,92 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
+set -e
+set -o errexit
+set -o errtrace
 
 error_handler() {
-    echo "错误：脚本第 ${BASH_LINENO[0]} 行执行失败：${BASH_COMMAND}" >&2
+    echo "Error occurred in script at line: ${BASH_LINENO[0]}, command: '${BASH_COMMAND}'"
 }
-trap error_handler ERR
 
-REPO_URL=${1:?缺少 REPO_URL}
-REPO_BRANCH=${2:?缺少 REPO_BRANCH}
-BUILD_DIR=${3:?缺少 BUILD_DIR}
-COMMIT_HASH=${4:-none}
+trap 'error_handler' ERR
 
+REPO_URL=$1
+REPO_BRANCH=$2
+BUILD_DIR=$3
+COMMIT_HASH=$4
+
+# Convert BUILD_DIR to absolute path
 if [[ "$BUILD_DIR" != /* ]]; then
     BUILD_DIR="$(pwd)/$BUILD_DIR"
 fi
 
 FEEDS_CONF="feeds.conf.default"
+GOLANG_REPO="https://github.com/sbwml/packages_lang_golang"
+GOLANG_BRANCH="27.x"
+THEME_SET="argon"
 LAN_ADDR="10.0.0.1"
 
-SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+SCRIPT_DIR=$(cd $(dirname $0) && pwd)
 BASE_PATH=${BASE_PATH:-$(dirname "$SCRIPT_DIR")}
 
 source "$SCRIPT_DIR/general.sh"
 source "$SCRIPT_DIR/feeds.sh"
 source "$SCRIPT_DIR/packages.sh"
 source "$SCRIPT_DIR/system.sh"
+source "$SCRIPT_DIR/docker.sh"
+
 
 main() {
-    echo "===== NN6000V2 原版系统 + NSS 网络优化 + LuCI ====="
-
     clone_repo
     clean_up
     reset_feeds_conf
-
-    cd "$BUILD_DIR"
-
     update_feeds
+    fix_miniupnpd_patches
+    update_golang
+    clone_quickfile
+    clone_lucky
+    clone_mini_diskmanager
+    clone_dockerman
+    clone_adguardhome
+    clone_luci_app_smartdns
+    clone_ghboost
+    clone_dockerd_istoreos
+    clone_zerotier
+    fix_zerotier_nonfree
+    install_extra_feed_deps
+    clone_oaf
+    clone_luci_tailscale
+    clone_singbox
     install_feeds
-
-    # QuickFile 使用 Nginx 反向代理；设置 HTTP-only 配置后再写入首次启动默认项
-    set_nginx_default_config
-
-    # 首次启动默认配置、温度显示、LAN 与 WiFi
-    fix_default_set
-    update_default_lan_addr
-
-    # 保留的系统修复
-    change_dnsmasq2full
-    update_dnsmasq_conf
-    update_nss_diag
-    update_affinity_script
-    update_cpuusage
-    update_script_priority
-    fix_kconfig_recursive_dependency
+    restore_libffi
+    fix_smartdns_makefile
+    update_docker_stack
     remove_tweaked_packages
-
-    echo "===== 精简脚本执行完成 ====="
-    echo "保留上游 NSS/无线/板级驱动；启用 APK、原版 LuCI（Nginx）、QuickFile、Argon、简体中文、USB 存储与常见文件系统；防火墙使用 firewall4/nftables。"
+    change_dnsmasq2full
+    fix_default_set
+    fix_mk_def_depends
+    update_default_lan_addr
+    update_affinity_script
+    update_dnsmasq_conf
+    change_cpuusage
+    set_custom_task
+    update_nss_pbuf_performance
+    update_nss_diag
+    fix_compile_coremark
+    set_build_signature
+    add_backup_info_to_sysupgrade
+    remove_attendedsysupgrade
+    fix_rust_compile_error
+    fix_kconfig_recursive_dependency
+    set_nginx_default_config
+    update_nginx_ubus_module
+    fix_nginx_configure
+    update_uwsgi_limit_as
+    update_script_priority
+    fix_openssl_ktls
+    fix_quectel_cm
+    install_pbr_isp
+    fix_pbr_ip_forward
+    fix_quickstart
 }
 
 main "$@"
