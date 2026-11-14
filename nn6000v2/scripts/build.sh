@@ -95,20 +95,59 @@ verify_wifi_packages_config() {
 verify_kernel_partition_size() {
     local image_mk="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
     [ -f "$image_mk" ] || { echo "Missing target image definition: $image_mk" >&2; return 1; }
+    local kernel_limit_kib=12288
+    local hlos_slot_kib=32768
+    [ "$kernel_limit_kib" -lt "$hlos_slot_kib" ] || {
+        echo "Error: configured kernel image limit exceeds the HLOS slot capacity." >&2
+        return 1
+    }
     sed -n '/link_nn6000-common/,/endef/p' "$image_mk" | grep -q 'KERNEL_SIZE := 12288k' || {
         echo "Error: Link NN6000 kernel partition must be 12288k (12 MiB)." >&2
         return 1
     }
-    echo "Link NN6000 kernel partition verified: 12288k (12 MiB)."
+    echo "Link NN6000 kernel image limit verified: 12288k within 32768k HLOS slot."
 }
 
 preflight_sonic_fullcone() {
-    local kernel_patch_dir="$BASE_PATH/patches/fullcone/kernel"
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local fw4_patch="package/network/config/firewall4/patches/002-independent-ipv6.patch"
+    local luci_patch="package/feeds/luci/luci-app-firewall/patches/002-independent-ipv6.patch"
     local required
-    for required in 984-add-sonic-fullcone-support.patch 986-add-sonic-fullcone-to-nft.patch 987-sonic-fullcone-fix-races-and-drops.patch; do
-        [ -s "$kernel_patch_dir/$required" ] || { echo "Missing SONiC FullCone kernel patch: $kernel_patch_dir/$required" >&2; return 1; }
+
+    for required in \
+        984-add-sonic-fullcone-support.patch \
+        986-add-sonic-fullcone-to-nft.patch \
+        987-sonic-fullcone-fix-races-and-drops.patch; do
+        [ -s "$BASE_PATH/patches/fullcone/kernel/$required" ] || {
+            echo "Missing SONiC FullCone kernel patch: $required" >&2
+            return 1
+        }
     done
-    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y
+
+    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y$' "$config_path" || {
+        echo "kmod-nft-nat is required for SONiC FullCone." >&2
+        return 1
+    }
+    for required in kmod-nf-nat6 kmod-nf-log6 kmod-nf-reject6; do
+        grep -q "^CONFIG_PACKAGE_${required}=y$" "$config_path" || {
+            echo "Required IPv6 netfilter package is missing: ${required}" >&2
+            return 1
+        }
+    done
+    if grep -Eq '^CONFIG_PACKAGE_kmod-(nft-fullcone|nft-nat6)=y$' "$config_path"; then
+        echo "Obsolete standalone FullCone or invalid nft-nat6 package remains selected." >&2
+        return 1
+    fi
+    [ -s "$fw4_patch" ] && grep -q 'fullcone6: \[ "bool", "0" \]' "$fw4_patch" || {
+        echo "firewall4 patch lacks the independent IPv6 global gate." >&2
+        return 1
+    }
+    [ -s "$luci_patch" ] && grep -q "fullcone6" "$luci_patch" || {
+        echo "LuCI patch lacks the independent IPv6 control." >&2
+        return 1
+    }
+    echo "SONiC FullCone static preflight passed."
+}
 
 apply_config() {
     \cp -f "$CONFIG_FILE" "$BASE_PATH/../$BUILD_DIR/.config"
