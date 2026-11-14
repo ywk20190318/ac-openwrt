@@ -37,6 +37,13 @@ reset_feeds_conf() {
     git clean -f -d
     git pull
     if [[ $COMMIT_HASH != "none" ]]; then
-        git checkout $COMMIT_HASH
+        git checkout "$COMMIT_HASH"
+    fi
+
+    # Apply mirror filtering after reset/pull; otherwise pre_clone_action's
+    # earlier edit is discarded by reset --hard.
+    local mirrors_file="$BUILD_DIR/scripts/projectsmirrors.json"
+    if [[ -f "$mirrors_file" ]]; then
+        sed -i '/\\.cn\\//d; /tencent/d; /aliyun/d' "$mirrors_file"
     fi
 }
