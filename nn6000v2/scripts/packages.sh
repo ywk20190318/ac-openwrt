@@ -55,7 +55,7 @@ fix_apk_pkg_version() {
 install_openwrt_packages() {
     ./scripts/feeds install -p openwrt_packages -f \
         luci-theme-argon luci-app-argon-config \
-        luci-app-dockerman luci-app-quickfile \
+        luci-app-quickfile \
         luci-app-mini-diskmanager luci-app-hd-idle luci-app-p910nd
 }
 
@@ -77,29 +77,6 @@ clone_mini_diskmanager() {
         "$temp_dir/luci-app-mini-diskmanager" \
         "$OPENWRT_PACKAGES_DIR/luci-app-mini-diskmanager"
     rm -rf "$temp_dir"
-}
-
-_sync_luci_lib_docker() {
-    local temp_dir="$OPENWRT_PACKAGES_DIR/luci-lib-docker-temp"
-    clone_packages "luci-lib-docker" \
-        "${GITHUB_BASE}lisaac/luci-app-dockerman.git" \
-        "$temp_dir" "collections/luci-lib-docker" "" "" \
-        "$temp_dir/collections/luci-lib-docker" \
-        "$OPENWRT_PACKAGES_DIR/luci-lib-docker"
-    rm -rf "$temp_dir"
-    fix_apk_pkg_version "$OPENWRT_PACKAGES_DIR/luci-lib-docker/Makefile"
-}
-
-clone_dockerman() {
-    local target="$OPENWRT_PACKAGES_DIR/luci-app-dockerman"
-    local temp_dir="$OPENWRT_PACKAGES_DIR/dockerman-temp"
-    _sync_luci_lib_docker
-    clone_packages "luci-app-dockerman" \
-        "${GITHUB_BASE}lisaac/luci-app-dockerman.git" \
-        "$temp_dir" "applications/luci-app-dockerman" "" "" \
-        "$temp_dir/applications/luci-app-dockerman" "$target"
-    rm -rf "$temp_dir"
-    fix_apk_pkg_version "$target/Makefile"
 }
 
 remove_attendedsysupgrade() {
