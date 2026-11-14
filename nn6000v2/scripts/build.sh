@@ -71,7 +71,12 @@ grep -qx 'CONFIG_LUCI_LANG_zh_Hans=y' .config || {
 echo "检查通过：已启用 APK 包管理器和 LuCI 简体中文语言。"
 
 # Nginx is the only web server in this image; fail if legacy uHTTPd returns.
-if grep -Eq '^CONFIG_PACKAGE_uhttpd(-mod-[^=]+)?=y
+if grep -Eq '^CONFIG_PACKAGE_uhttpd(-mod-[^=]+)?=y' .config; then
+    echo "错误：检测到 uHTTPd 或其模块被选中；本固件只使用 Nginx。" >&2
+    exit 1
+fi
+echo "检查通过：uHTTPd 及其模块未被选入固件。"
+
 # Validate the explicitly requested networking and external-storage modules.
 REQUIRED_KMODS=(
     kmod-nft-tproxy
@@ -220,6 +225,24 @@ REQUIRED_PACKAGES=(
     luci-theme-argon
     luci-app-quickfile
     quickfile
+    luci-app-openclash
+    luci-app-diskman
+    parted
+    smartmontools
+    blkid
+    e2fsprogs
+    btrfs-progs
+    lsblk
+    ntfs-3g-utils
+    bash
+    curl
+    ca-bundle
+    ip-full
+    ruby
+    ruby-yaml
+    unzip
+    luci-compat
+    dnsmasq-full
     nginx-ssl
     nginx-util
     nginx-mod-luci
@@ -296,7 +319,7 @@ for package in "${REQUIRED_PACKAGES[@]}"; do
         exit 1
     fi
 done
-echo "检查通过：QuickFile、Nginx 和磁盘管理基础工具均已进入最终固件。"
+echo "检查通过：OpenClash、QuickFile、Diskman、Nginx 和磁盘管理基础工具均已进入最终固件。"
 
 # Verify that the final image does not contain the obsolete uHTTPd stack.
 if awk '$1 ~ /^uhttpd($|-)/ { found=1 } END { exit !found }' "$MANIFEST_FILE"; then
