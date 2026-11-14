@@ -109,7 +109,7 @@ update_dnsmasq_conf() {
 }
 
 update_script_priority() {
-    local nss_init="$BUILD_DIR/package/feeds/nss_packages/qca-nss-drv/files/qca-nss-drv.init"
+    local nss_init="$BUILD_DIR/package/qca-nss/qca-nss-drv/files/qca-nss-drv.init"
     local pbuf_init="$BUILD_DIR/package/kernel/mac80211/files/qca-nss-pbuf.init"
 
     if [[ -f "$nss_init" ]]; then
