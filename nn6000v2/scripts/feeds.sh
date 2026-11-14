@@ -36,6 +36,8 @@ install_feeds() {
     install_luci_base
     install_nginx_packages
     install_quickfile
+    install_openclash
+    install_diskman
 
-    echo "===== QuickFile、Nginx 和存储支持组件源码准备完成 ====="
+    echo "===== OpenClash、QuickFile、Diskman、Nginx 和存储支持组件源码准备完成 ====="
 }
