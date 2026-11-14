@@ -441,6 +441,28 @@ remove_tweaked_packages() {
 }
 
 
+disable_firewall4_nft_offload_dependency() {
+    local firewall4_makefile="$1"
+
+    [ -s "$firewall4_makefile" ] || {
+        echo "Missing firewall4 Makefile: $firewall4_makefile" >&2
+        return 1
+    }
+
+    # firewall4 works without nftables flow-offload support. Keep the kmod
+    # available as a separate APK, but do not pull it into the base firmware.
+    if grep -q '+kmod-nft-offload' "$firewall4_makefile"; then
+        sed -i 's/[[:space:]]+kmod-nft-offload//g' "$firewall4_makefile"
+    fi
+
+    if grep -q '+kmod-nft-offload' "$firewall4_makefile"; then
+        echo "firewall4 still hard-depends on kmod-nft-offload." >&2
+        return 1
+    fi
+
+    echo "Removed firewall4 hard dependency on nft-offload; optional kmod remains available as APK."
+}
+
 install_sonic_fullcone() {
     local patch_root="$BASE_PATH/patches/fullcone"
     local kernel_dir="$BUILD_DIR/target/linux/generic/hack-6.18"
@@ -480,6 +502,8 @@ install_sonic_fullcone() {
         echo "Upstream luci-app-fullconenat-sonic package is missing." >&2
         return 1
     }
+
+    disable_firewall4_nft_offload_dependency "$firewall4_dir/Makefile"
 
     install -Dm644 "$patch_root/firewall4/004-independent-ipv6.patch" "$firewall4_dir/patches/004-independent-ipv6.patch"
     install -Dm644 "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.js" "$luci_dir/htdocs/luci-static/resources/tools/fullconenat-sonic.js"
