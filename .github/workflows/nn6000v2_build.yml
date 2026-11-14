@@ -81,34 +81,19 @@ jobs:
           chmod +x nn6000v2/scripts/*.sh
           ./nn6000v2/scripts/pre_clone_action.sh "$DEVICE_MODEL"
 
-      - name: 应用可选内核版本
+      - name: 校验可选内核版本参数
         if: ${{ inputs.kernel_patchver != '' }}
         shell: bash
         env:
           KERNEL_PATCHVER: ${{ inputs.kernel_patchver }}
         run: |
           set -Eeuo pipefail
-          case "$KERNEL_PATCHVER" in
-            *[!0-9.]*|'')
-              echo "内核版本参数无效：$KERNEL_PATCHVER" >&2
-              exit 1
-              ;;
-          esac
-          if [[ ! "$KERNEL_PATCHVER" =~ ^[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "$KERNEL_PATCHVER" =~ ^[0-9]+\\.[0-9]+$ ]]; then
             echo "请使用“主版本.次版本”格式，例如 6.6（不要填写 6.6.122）。" >&2
             exit 1
           fi
-          MAKEFILE="action_build/target/linux/qualcommax/Makefile"
-          test -f "$MAKEFILE" || {
-            echo "错误：找不到目标 Makefile：$MAKEFILE" >&2
-            exit 1
-          }
-          grep -qE '^KERNEL_PATCHVER[:?+]?=' "$MAKEFILE" || {
-            echo "错误：在 $MAKEFILE 中未找到 KERNEL_PATCHVER，已停止修改以避免错误追加。" >&2
-            exit 1
-          }
-          sed -i -E "s/^KERNEL_PATCHVER[:?+]?=.*/KERNEL_PATCHVER:=${KERNEL_PATCHVER}/" "$MAKEFILE"
-          grep -n '^KERNEL_PATCHVER' "$MAKEFILE"
+          # build.sh applies this after update.sh resets/pulls the source tree.
+          echo "KERNEL_PATCHVER=$KERNEL_PATCHVER" >> "$GITHUB_ENV"
 
       - name: 恢复编译缓存
         if: ${{ !inputs.clean_ccache }}
