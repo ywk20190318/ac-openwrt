@@ -329,7 +329,7 @@ _docker_stack_update_dockerd_defaults() {
         _docker_stack_set_or_append_sysctl_value "$dockerd_sysctl" "net.ipv6.conf.all.forwarding" "1" || return 1
         _docker_stack_log_info "sysctl 网络转发已启用"
     else
-        _docker_stack_log_warn "未找到 dockerd sysctl 文件（iStoreOS fork 使用 hotplug 处理），跳过 sysctl 设置"
+        _docker_stack_log_warn "未找到 dockerd sysctl 文件，跳过 sysctl 设置"
     fi
 }
 
@@ -341,7 +341,7 @@ _docker_stack_show_help() {
 用法：docker.sh [选项]
 
 dockerd 默认配置工具 - 应用本项目对 dockerd 的默认配置
-组件版本跟随 iStoreOS 25.12 feeds，脚本不再固定版本
+组件版本跟随 ImmortalWrt packages feed，脚本不再固定版本
 
 环境变量:
   BUILD_DIR                        构建目录路径 (必需)

@@ -1,0 +1,34 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh_Hans\n"
+
+#: package/emortal/luci-app-fullconenat-sonic/htdocs/luci-static/resources/tools/fullconenat-sonic.js:37
+#: package/emortal/luci-app-fullconenat-sonic/htdocs/luci-static/resources/tools/fullconenat-sonic.js:44
+msgid "Fullcone NAT"
+msgstr "全锥型 NAT"
+
+#: package/emortal/luci-app-fullconenat-sonic/root/usr/share/rpcd/acl.d/luci-app-fullconenat-sonic.json:3
+msgid "Grant access to fullcone firewall settings"
+msgstr "授予访问全锥型防火墙设置的权限"
+
+#: package/emortal/luci-app-fullconenat-sonic/htdocs/luci-static/resources/tools/fullconenat-sonic.js:45
+msgid ""
+"Uses all supported protocols. Enabling IPv4 Fullcone NAT automatically "
+"enables IPv4 masquerading. Disabling IPv4 masquerading also disables IPv4 "
+"Fullcone NAT for this zone. Disabling IPv4 Fullcone NAT leaves IPv4 "
+"masquerading unchanged. Usually enable this only on the WAN zone."
+msgstr "使用所有受支持的协议。开启 IPv4 全锥型 NAT 时自动开启 IPv4 伪装；关闭 IPv4 伪装时自动关闭该区域的 IPv4 全锥型 NAT。关闭 IPv4 全锥型 NAT 不改变 IPv4 伪装设置。通常仅需在 WAN 区域开启。"
+
+msgid "Fullcone NAT (IPv6)"
+msgstr "全锥型 NAT（IPv6）"
+
+msgid "Enable IPv6 Fullcone NAT independently of IPv4."
+msgstr "独立启用 IPv6 全锥型 NAT，不影响 IPv4 设置。"
+
+msgid ""
+"Uses all supported protocols. Enabling IPv6 Fullcone NAT automatically "
+"enables IPv6 masquerading. Disabling IPv6 masquerading also disables IPv6 "
+"Fullcone NAT for this zone. Disabling IPv6 Fullcone NAT leaves IPv6 "
+"masquerading unchanged. Usually enable this only on the WAN zone."
+msgstr "使用所有受支持的协议。开启 IPv6 全锥型 NAT 时自动开启 IPv6 伪装；关闭 IPv6 伪装时自动关闭该区域的 IPv6 全锥型 NAT。关闭 IPv6 全锥型 NAT 不改变 IPv6 伪装设置。通常仅需在 WAN 区域开启。"

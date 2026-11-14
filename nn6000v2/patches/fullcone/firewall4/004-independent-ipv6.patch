@@ -1,0 +1,42 @@
+From: ac-openwrt
+Subject: [PATCH] firewall4: expose independent IPv4 and IPv6 SONiC Fullcone switches
+
+--- a/root/etc/config/firewall
++++ b/root/etc/config/firewall
+@@ -9,1 +9,2 @@
+ 	option fullcone		1
++	option fullcone6	0
+@@ -27,1 +28,2 @@
+ 	option fullcone		1
++	option fullcone6	0
+--- a/root/usr/share/firewall4/templates/ruleset.uc
++++ b/root/usr/share/firewall4/templates/ruleset.uc
+@@ -333,1 +333,1 @@
+-{%   if (zone.masq6 && zone.fullcone): %}
++{%   if (zone.masq6 && zone.fullcone6): %}
+@@ -359,1 +359,1 @@
+-{%      if (zone.fullcone): %}
++{%      if (zone.fullcone6): %}
+--- a/root/usr/share/ucode/fw4.uc
++++ b/root/usr/share/ucode/fw4.uc
+@@ -1974,1 +1974,2 @@
++			fullcone6: [ "bool", "0" ],
+ 			input: [ "policy", "drop" ],
+@@ -2008,4 +2009,5 @@
+-		if (defs.fullcone) {
++		if (defs.fullcone || defs.fullcone6) {
+ 			if (!nft_try_fullcone()) {
+ 				delete defs.fullcone;
++				delete defs.fullcone6;
+-				warn("fullcone expression not available, disabling fullcone globally\n");
++				warn("fullcone expression not available, disabling IPv4 and IPv6 fullcone globally\n");
+@@ -2041,1 +2043,2 @@
++			fullcone6: [ "bool" ],
+ 
+@@ -2072,2 +2075,3 @@
+ 		zone.fullcone = !!(this.state.defaults.fullcone && zone.fullcone);
++		zone.fullcone6 = !!(this.state.defaults.fullcone6 && zone.fullcone6);
+ 
+@@ -2252,1 +2256,1 @@
+-			if (zone.fullcone)
++			if (zone.fullcone6)

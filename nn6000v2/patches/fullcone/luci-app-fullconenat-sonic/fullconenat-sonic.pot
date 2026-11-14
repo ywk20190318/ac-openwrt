@@ -1,0 +1,40 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+#: package/emortal/luci-app-fullconenat-sonic/htdocs/luci-static/resources/tools/fullconenat-sonic.js:37
+#: package/emortal/luci-app-fullconenat-sonic/htdocs/luci-static/resources/tools/fullconenat-sonic.js:44
+msgid "Fullcone NAT"
+msgstr ""
+
+#: package/emortal/luci-app-fullconenat-sonic/root/usr/share/rpcd/acl.d/luci-app-fullconenat-sonic.json:3
+msgid "Grant access to fullcone firewall settings"
+msgstr ""
+
+#: package/emortal/luci-app-fullconenat-sonic/htdocs/luci-static/resources/tools/fullconenat-sonic.js:45
+msgid ""
+"Uses all supported protocols. Enabling Fullcone NAT automatically enables "
+"IPv4 masquerading. Disabling IPv4 masquerading also disables Fullcone NAT "
+"for this zone. Disabling Fullcone NAT leaves masquerading unchanged. IPv6 "
+"masquerading is independent. Usually enable this only on the WAN zone."
+msgstr ""
+
+
+msgid "Fullcone NAT (IPv6)"
+msgstr ""
+
+msgid "Enable IPv6 Fullcone NAT independently of IPv4."
+msgstr ""
+
+msgid ""
+"Uses all supported protocols. Enabling IPv4 Fullcone NAT automatically "
+"enables IPv4 masquerading. Disabling IPv4 masquerading also disables IPv4 "
+"Fullcone NAT for this zone. Disabling IPv4 Fullcone NAT leaves IPv4 "
+"masquerading unchanged. Usually enable this only on the WAN zone."
+msgstr ""
+
+msgid ""
+"Uses all supported protocols. Enabling IPv6 Fullcone NAT automatically "
+"enables IPv6 masquerading. Disabling IPv6 masquerading also disables IPv6 "
+"Fullcone NAT for this zone. Disabling IPv6 Fullcone NAT leaves IPv6 "
+"masquerading unchanged. Usually enable this only on the WAN zone."
+msgstr ""

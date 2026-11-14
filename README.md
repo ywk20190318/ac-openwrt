@@ -3,7 +3,7 @@
 ## 1. 项目信息
 
 - **源码来源**：[VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt.git)
-- **设备支持**：Link\_NN6000V2，内核分区 12m（固件包含带 WiFi 和不带 WiFi 版本）
+- **设备支持**：Link\_NN6000V2，内核分区 12 MiB（仅构建带 WiFi 驱动的固件版本）
 - **固件发布**：[点击下载](https://github.com/wzdddyy/Link_NN6000V2/releases/latest)
 
 ***
@@ -16,8 +16,8 @@
 | ------------ | ----------- | ---------------------------------------- |
 | **LAN IP**   | `10.0.0.1`  | (nn6000v2/scripts/update.sh) |
 | **WiFi 名称**  | `500/5`     | (nn6000v2/patches/992\_network\_config.sh) |
-| **WiFi 密码**  | `147258369` | 无线密码                                     |
-| **WiFi 状态**  | **禁用**      | 首次启动需手动开启                                |
+| **WiFi 密码**  | `88888888` | 2.4G/5G 默认无线密码 |
+| **WiFi 状态**  | **启用**      | 首次启动自动启用 2.4G/5G 无线                                |
 | **Web 管理服务** | `nginx` | LuCI 由 Nginx 提供服务，移除 uhttpd |
 | **2.4G 信道** | `auto` | 自动选择信道 |
 | **5G 信道** | `157` | 固定信道 157 |
@@ -36,37 +36,38 @@
 | `luci-app-quickfile` | 文件管理 |
 | `luci-app-p910nd` | USB 打印机共享 |
 | `luci-app-hd-idle` | 硬盘休眠 |
-| `luci-app-smartdns` | SmartDNS 管理 |
-| `luci-app-lucky` | Lucky 管理 |
-| `luci-app-adguardhome` | AdGuardHome 管理 |
-| `luci-app-ghboost` | GHBoost 管理 |
-| `luci-app-oaf` | 应用过滤 |
-| `luci-app-tailscale-community` | Tailscale 管理 |
-| `luci-app-zerotier` | ZeroTier 管理 |
+
+- Docker 后端使用上游官方 feeds 的 `docker` / `dockerd` 软件包；本项目预装 Dockerman 管理界面，不替换 Docker daemon 为第三方 fork。
+- 表格列出本固件实际预装的应用；其他可安装包以当前 feeds 提供的包索引为准，不代表额外插件已预装。
 ***
 
-### 2.3 已移除的 iStore 组件
+### 2.3 SONiC FullCone NAT
 
-以下 iStore 商店及其专用辅助包不再安装：
+- IPv4、IPv6 在防火墙常规设置中分别提供独立总开关。
+- 每个防火墙区域也分别提供 IPv4、IPv6 开关。
+- IPv4 保留上游默认值（全局及 WAN 区域开启）；IPv6 FullCone 全局及 WAN 区域默认关闭。
+- 两个协议族的总开关、区域开关和伪装联动分别处理，互不覆盖。
+- 为避免与该 FullCone 后端冲突，软件/硬件流量卸载默认关闭，LuCI 不提供重新开启入口。
+- 使用 ImmortalWrt 上游 fullconenat-sonic 后端包和 luci-app-fullconenat-sonic 管理界面；Linux 6.18 内核、libnftnl、nftables 和 firewall4 补丁由上游提供，后端包通过 Kconfig 启用 CONFIG_NF_NAT_FULLCONE，不使用独立 FullCone kmod。
+- 构建会先检查上游后端包、LuCI 包及补丁，并运行内核、libnftnl、nftables、firewall4 和 SONiC LuCI 包的 prepare 阶段检查。
 
-- `luci-app-store`
-- `luci-app-istorex`
-- `taskd`
-- `luci-lib-taskd`
-- `luci-lib-xterm`
-- `luci-lib-ipkg`
+### 2.4 APK 软件源与内核 ABI
 
-Docker 管理相关组件保留；其中 dockerd 使用 iStoreOS 仓库的构建版本，但它是 Docker 后端，不是 iStore 商店插件，也不是上述商店辅助依赖。
+普通 APK 软件包源与 kmods 源分开配置。系统从已安装的 kernel APK 元数据读取版本和 vermagic，并从设备读取实际 APK 架构；解析失败时停止生成仓库地址，不猜测 kmods 路径。普通软件包源可通过 APK_MIRROR 覆盖，内核模块源可通过 KMODS_MIRROR 单独覆盖。kmods 必须与当前固件内核 ABI 完全匹配，不能跨内核或跨固件混装。
 
-***
+## 3. 构建方式
 
-## 3. 插件来源
+- GitHub Actions 仅支持手动触发（`workflow_dispatch`），不会因向 `main` 推送代码自动编译。
+- 手动触发时可选择 `preflight_only`，先运行脚本语法、配置、内核补丁及 FullCone/LuCI prepare 检查，不执行完整编译。
+- 每次只构建带 WiFi 驱动的固件，不生成 `nowifi` 版本。
+
+## 4. 插件来源
 
 部分插件源自：<https://github.com/kenzok8/openwrt-packages>
 
 ***
 
-## 4. 项目结构
+## 5. 项目结构
 
 ```
 Link_NN6000V2/

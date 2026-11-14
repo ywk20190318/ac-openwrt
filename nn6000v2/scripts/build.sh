@@ -14,8 +14,15 @@ fi
 
 BASE_PATH=$(cd "$NN6000V2_PATH" && pwd)
 
-Dev=$1
-Build_Mod=$2
+Dev=${1:?Usage: build.sh <device-config> [debug]}
+Build_Mod=${2:-release}
+
+case "$Dev" in
+    *nowifi*)
+        echo "Error: NoWiFi firmware targets are disabled; build the WiFi-enabled device only." >&2
+        exit 1
+        ;;
+esac
 
 CONFIG_FILE="$BASE_PATH/configs/$Dev.config"
 
@@ -73,6 +80,128 @@ verify_nginx_webserver_config() {
     echo "Nginx/LuCI package dependency checks passed; uhttpd packages are disabled."
 }
 
+verify_wifi_packages_config() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+    for package in kmod-ath kmod-ath11k kmod-ath11k-ahb ath11k-firmware-ipq6018-ddwrt ath11k-firmware-qcn9074-ddwrt; do
+        if ! grep -q "^CONFIG_PACKAGE_${package}=y$" "$config_path"; then
+            echo "Error: required Wi-Fi driver/firmware package is missing after defconfig: $package" >&2
+            return 1
+        fi
+    done
+    echo "Wi-Fi driver and firmware package checks passed."
+}
+
+verify_kernel_partition_size() {
+    local image_mk="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
+    [ -f "$image_mk" ] || { echo "Missing target image definition: $image_mk" >&2; return 1; }
+    sed -n '/link_nn6000-common/,/endef/p' "$image_mk" | grep -q 'KERNEL_SIZE := 12288k' || {
+        echo "Error: Link NN6000 kernel partition must be 12288k (12 MiB)." >&2
+        return 1
+    }
+    echo "Link NN6000 kernel partition verified: 12288k (12 MiB)."
+}
+
+verify_ipv6_packages_config() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local package
+
+    grep -q '^CONFIG_IPV6=y$' "$config_path" || {
+        echo "IPv6 kernel protocol stack is not enabled." >&2
+        return 1
+    }
+
+    for package in kmod-nf-nat6 kmod-nf-log6 kmod-nf-reject6; do
+        grep -q "^CONFIG_PACKAGE_${package}=y$" "$config_path" || {
+            echo "Required IPv6 base package is missing: ${package}" >&2
+            return 1
+        }
+    done
+
+    for package in kmod-nf-ipt6 kmod-ip6tables kmod-ip6tables-extra kmod-ip6-tunnel kmod-sit kmod-gre kmod-gre6 kmod-fou kmod-fou6 kmod-ipsec6 kmod-ip6-vti kmod-xfrm-interface; do
+        grep -q "^CONFIG_PACKAGE_${package}=m$" "$config_path" || {
+            echo "Optional IPv6 APK package is missing or not modular: ${package}" >&2
+            return 1
+        }
+    done
+
+    echo "IPv6 base packages and optional ABI-matched APK modules verified."
+}
+
+preflight_sonic_fullcone() {
+    local config_path="$BASE_PATH/../$BUILD_DIR/.config"
+    local backend_dir="$BASE_PATH/../$BUILD_DIR/package/network/utils/fullconenat-sonic"
+    local luci_dir="$BASE_PATH/../$BUILD_DIR/package/emortal/luci-app-fullconenat-sonic"
+    local fw4_patch="$BASE_PATH/../$BUILD_DIR/package/network/config/firewall4/patches/004-independent-ipv6.patch"
+    local required
+
+    grep -q '^CONFIG_PACKAGE_fullconenat-sonic=y$' "$config_path" || {
+        echo "The upstream SONiC FullCone backend package is not selected." >&2
+        return 1
+    }
+    grep -q '^CONFIG_PACKAGE_luci-app-fullconenat-sonic=y$' "$config_path" || {
+        echo "The SONiC FullCone LuCI package is not selected." >&2
+        return 1
+    }
+    grep -q '^CONFIG_PACKAGE_kmod-nft-nat=y$' "$config_path" || {
+        echo "kmod-nft-nat is required by the SONiC FullCone backend." >&2
+        return 1
+    }
+
+    [ -s "$backend_dir/Makefile" ] || {
+        echo "Missing upstream SONiC backend package Makefile." >&2
+        return 1
+    }
+    grep -q 'CONFIG_NF_NAT_FULLCONE=y' "$backend_dir/Makefile" || {
+        echo "SONiC backend Makefile does not enable CONFIG_NF_NAT_FULLCONE." >&2
+        return 1
+    }
+    [ -s "$luci_dir/Makefile" ] || {
+        echo "Missing upstream SONiC LuCI package Makefile." >&2
+        return 1
+    }
+
+    for required in \
+        001-integrate-firewall-zones.patch \
+        002-disable-routing-nat-offload.patch; do
+        [ -s "$luci_dir/patches/$required" ] || {
+            echo "Missing upstream SONiC LuCI patch: $required" >&2
+            return 1
+        }
+    done
+    [ -s "$fw4_patch" ] && grep -q 'fullcone6' "$fw4_patch" || {
+        echo "Independent IPv6 FullCone firewall4 patch is missing or incomplete." >&2
+        return 1
+    }
+    [ -s "$BASE_PATH/patches/fullcone/luci-app-fullconenat-sonic/fullconenat-sonic.js" ] || {
+        echo "Independent IPv4/IPv6 LuCI controller is missing." >&2
+        return 1
+    }
+
+    grep -Fq 'if (defs.fullcone || defs.fullcone6)' "$fw4_patch" || {
+        echo "FullCone capability probing must cover both IPv4 and IPv6." >&2
+        return 1
+    }
+    grep -Fq 'tools.fullconenat-sonic' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI firewall page does not load the independent FullCone controls." >&2
+        return 1
+    }
+    grep -Fq 'fullcone.addGlobal(s)' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI global IPv4/IPv6 FullCone controls are not integrated." >&2
+        return 1
+    }
+    grep -Fq 'fullcone.addZone(s)' "$luci_dir/patches/001-integrate-firewall-zones.patch" || {
+        echo "LuCI per-zone IPv4/IPv6 FullCone controls are not integrated." >&2
+        return 1
+    }
+
+    if grep -Eq '^CONFIG_PACKAGE_kmod-(nft-fullcone|nft-nat6)=y$' "$config_path"; then
+        echo "Obsolete standalone FullCone kmod remains selected." >&2
+        return 1
+    fi
+
+    echo "Upstream SONiC FullCone backend and independent IPv4/IPv6 LuCI preflight passed."
+}
 apply_config() {
     \cp -f "$CONFIG_FILE" "$BASE_PATH/../$BUILD_DIR/.config"
 
@@ -149,8 +278,14 @@ modify_kernel_size() {
     
     if [ -f "$ipq60xx_mk_path" ]; then
         # Change KERNEL_SIZE from 6144k to 12288k for link_nn6000 devices
-        sed -i '/link_nn6000-common/,/endef/{s/KERNEL_SIZE := 6144k/KERNEL_SIZE := 12288k/g}' "$ipq60xx_mk_path"
-        echo "Updated KERNEL_SIZE to 12288k (12MB) for link_nn6000 devices"
+        if ! sed -n '/link_nn6000-common/,/endef/p' "$ipq60xx_mk_path" | grep -q 'KERNEL_SIZE := 12288k'; then
+            sed -i '/link_nn6000-common/,/endef/{s/KERNEL_SIZE := 6144k/KERNEL_SIZE := 12288k/g}' "$ipq60xx_mk_path"
+        fi
+        if ! sed -n '/link_nn6000-common/,/endef/p' "$ipq60xx_mk_path" | grep -q 'KERNEL_SIZE := 12288k'; then
+            echo "Error: failed to set Link NN6000 kernel size to 12288k." >&2
+            return 1
+        fi
+        echo "Verified KERNEL_SIZE=12288k (12 MiB) for link_nn6000 devices"
     fi
 }
 
@@ -159,87 +294,41 @@ modify_kernel_size
 cd "$BASE_PATH/../$BUILD_DIR"
 make defconfig
 verify_nginx_webserver_config
+verify_wifi_packages_config
+verify_ipv6_packages_config
+verify_kernel_partition_size
+preflight_sonic_fullcone
+
+# Validate all selected patch series before starting the full build.
+make target/linux/prepare
+make package/libs/libnftnl/prepare
+make package/network/utils/nftables/prepare
+make package/network/config/firewall4/prepare
+make package/network/utils/fullconenat-sonic/prepare
+make package/emortal/luci-app-fullconenat-sonic/prepare
 
 if [[ $Build_Mod == "debug" ]]; then
     exit 0
 fi
 
 TARGET_DIR="$BASE_PATH/../$BUILD_DIR/bin/targets"
-if [[ -d $TARGET_DIR && "$Dev" != *"nowifi"* ]]; then
+if [[ -d $TARGET_DIR ]]; then
     find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec rm -f {} +
 fi
 
-if [[ "$Dev" != *"nowifi"* ]]; then
-    make download -j$(($(nproc) * 2))
-    make -j$(($(nproc) + 1)) || make -j1 V=s
+make download -j$(($(nproc) * 2))
+make -j$(($(nproc) + 1)) || make -j1 V=s
+
+# Publish only the Wi-Fi-enabled build.
+FIRMWARE_DIR="$BASE_PATH/../firmware"
+\rm -rf "$FIRMWARE_DIR"
+mkdir -p "$FIRMWARE_DIR"
+find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
+
+if find "$FIRMWARE_DIR" -maxdepth 1 -type f -iname '*nowifi*' | grep -q .; then
+    echo "Error: NoWiFi artifact detected in firmware output." >&2
+    exit 1
 fi
 
-if [[ -d action_build ]]; then
-    make clean
-fi
+echo "Wi-Fi-enabled firmware copied to: $FIRMWARE_DIR"
 
-# 如果是正常版本编译，完成后自动编译无 WiFi 版本
-if [[ "$Dev" != *"nowifi"* ]]; then
-    echo ""
-    echo "=============================================="
-    echo "  版本编译完成！"
-    echo "  开始编译无 WiFi 版本..."
-    echo "=============================================="
-    echo ""
-    
-    # 先复制带 WiFi 版本到最终目录
-    FIRMWARE_DIR="$BASE_PATH/../firmware"
-    \rm -rf "$FIRMWARE_DIR"
-    mkdir -p "$FIRMWARE_DIR"
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
-    
-    # 直接修改当前配置文件（禁用 WiFi）
-    cd "$BASE_PATH/../$BUILD_DIR"
-    
-    echo "应用配置..."
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath=y$/CONFIG_PACKAGE_kmod-ath=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k=y$/CONFIG_PACKAGE_kmod-ath11k=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-ahb=y$/CONFIG_PACKAGE_kmod-ath11k-ahb=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-pci=y$/CONFIG_PACKAGE_kmod-ath11k-pci=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018=y$/CONFIG_PACKAGE_ath11k-firmware-ipq6018=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y$/CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074=y$/CONFIG_PACKAGE_ath11k-firmware-qcn9074=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y$/CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n/' "$CONFIG_FILE"
-    
-    cp -f "$CONFIG_FILE" .config
-    make defconfig
-    verify_nginx_webserver_config
-    
-    echo "编译无 WiFi 版本..."
-    make -j$(($(nproc) + 1)) || make -j1 V=s
-    
-    echo "复制固件..."
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) | while read -r file; do
-        filename=$(basename "$file")
-        new_filename=$(echo "$filename" | sed 's/\.\([^.]*\)$/_nowifi.\1/')
-        echo "Copying: $filename -> $new_filename"
-        cp -f "$file" "$FIRMWARE_DIR/$new_filename"
-    done
-    
-    # 恢复配置文件
-    echo "恢复配置文件..."
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath=n$/CONFIG_PACKAGE_kmod-ath=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k=n$/CONFIG_PACKAGE_kmod-ath11k=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-ahb=n$/CONFIG_PACKAGE_kmod-ath11k-ahb=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-pci=n$/CONFIG_PACKAGE_kmod-ath11k-pci=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n$/CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n$/CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y/' "$CONFIG_FILE"
-    
-    echo ""
-    echo "=============================================="
-    echo "  双版本已编译完成！"
-    echo "  输出目录：$FIRMWARE_DIR"
-    echo "=============================================="
-    echo ""
-    
-    if [[ -d action_build ]]; then
-        make clean
-    fi
-    
-    exit 0
-fi

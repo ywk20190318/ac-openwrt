@@ -181,16 +181,6 @@ update_dnsmasq_conf() {
     fi
 }
 
-add_backup_info_to_sysupgrade() {
-    local conf_path="$BUILD_DIR/package/base-files/files/etc/sysupgrade.conf"
-
-    if [ -f "$conf_path" ]; then
-        cat >"$conf_path" <<'EOF'
-/etc/AdGuardHome.yaml
-/etc/lucky/
-EOF
-    fi
-}
 
 update_script_priority() {
     local qca_drv_path="$BUILD_DIR/package/feeds/nss_packages/qca-nss-drv/files/qca-nss-drv.init"
@@ -210,16 +200,6 @@ fix_rust_compile_error() {
     fi
 }
 
-fix_zerotier_nonfree() {
-    local makefile="$BUILD_DIR/feeds/packages/net/zerotier/Makefile"
-    if [ ! -f "$makefile" ]; then
-        echo "zerotier Makefile not found, skip NONFREE fix"
-        return 0
-    fi
-
-    echo "正在启用 zerotier ZT_NONFREE=1（内置 Controller 支持）..."
-    sed -i 's/ZT_NONFREE=0/ZT_NONFREE=1/g' "$makefile"
-}
 
 fix_miniupnpd_patches() {
     local dir="$BUILD_DIR/feeds/packages/net/miniupnpd/patches"
@@ -231,56 +211,6 @@ fix_miniupnpd_patches() {
     done
 }
 
-fix_smartdns_makefile() {
-    local makefile="$BUILD_DIR/feeds/openwrt_packages/smartdns/Makefile"
-    if [ ! -f "$makefile" ]; then
-        makefile="$BUILD_DIR/feeds/packages/net/smartdns/Makefile"
-    fi
-    if [ ! -f "$makefile" ]; then
-        echo "smartdns Makefile not found, skip fix"
-        return 0
-    fi
-
-    echo "正在修复 smartdns Makefile，移除 Rust UI 依赖..."
-
-    local smartdns_ver apk_ver
-    smartdns_ver=$(sed -n 's/^PKG_VERSION:=//p' "$makefile" | head -n 1)
-    case "$smartdns_ver" in
-        *-RC*|*-rc*)
-            apk_ver=$(echo "$smartdns_ver" | sed 's/-[Rr][Cc]/_rc/')
-            echo "正在修正 smartdns 版本号：$smartdns_ver -> $apk_ver..."
-            sed -i "s/^PKG_VERSION:=.*/PKG_VERSION:=$apk_ver/" "$makefile"
-            sed -i "s|^PKG_SOURCE_URL:=.*|PKG_SOURCE_URL:=https://codeload.github.com/pymumu/smartdns/tar.gz/Release$smartdns_ver?|" "$makefile"
-            sed -i "s|^PKG_BUILD_DIR:=.*|PKG_BUILD_DIR:=\$(BUILD_DIR)/\$(PKG_NAME)-Release$smartdns_ver|" "$makefile"
-            ;;
-    esac
-
-    # 删除 Rust package include
-    sed -i '/rust-package.mk/d' "$makefile"
-    # 删除 Rust 相关变量
-    sed -i '/^RUST_PKG/d' "$makefile"
-    sed -i '/^PKG_BUILD_DEPENDS.*smartdns-ui/d' "$makefile"
-    sed -i '/^PKG_CONFIG_DEPENDS.*smartdns-ui/d' "$makefile"
-    # 删除 smartdns-ui 包定义
-    sed -i '/^define Package\/smartdns-ui/,/^endef/d' "$makefile"
-    # 删除 Build/Prepare 中的 smartdns-webui 下载
-    sed -i '/^define Download\/smartdns-webui/,/^endef/d' "$makefile"
-    sed -i '/smartdns-webui/d' "$makefile"
-    # 删除 Build/Prepare 和 Build/Compile 中的 ifneq 块
-    sed -i '/ifneq.*CONFIG_PACKAGE_smartdns-ui/,/endif/d' "$makefile"
-    # 删除 smartdns-ui 安装规则
-    sed -i '/^define Package\/smartdns-ui\/install/,/^endef/d' "$makefile"
-    # 删除 smartdns-ui 的 eval
-    sed -i '/smartdns-ui)/d' "$makefile"
-    # 补充缺失的 zlib 依赖
-    if grep -q 'DEPENDS:=.*+i386:libatomic +libopenssl' "$makefile"; then
-        if ! grep -q '+zlib' "$makefile"; then
-            sed -i 's/DEPENDS:=+i386:libatomic +libopenssl/DEPENDS:=+i386:libatomic +libopenssl +zlib/' "$makefile"
-        fi
-    fi
-    
-    echo "smartdns Makefile 修复完成"
-}
 
 update_nginx_ubus_module() {
     local makefile_path="$BUILD_DIR/feeds/packages/net/nginx/Makefile"
@@ -510,3 +440,52 @@ remove_tweaked_packages() {
     fi
 }
 
+
+install_sonic_fullcone() {
+    local patch_root="$BASE_PATH/patches/fullcone"
+    local kernel_dir="$BUILD_DIR/target/linux/generic/hack-6.18"
+    local libnftnl_dir="$BUILD_DIR/package/libs/libnftnl"
+    local nftables_dir="$BUILD_DIR/package/network/utils/nftables"
+    local firewall4_dir="$BUILD_DIR/package/network/config/firewall4"
+    local backend_dir="$BUILD_DIR/package/network/utils/fullconenat-sonic"
+    local luci_dir="$BUILD_DIR/package/emortal/luci-app-fullconenat-sonic"
+
+    for file in \
+        "$kernel_dir/984-add-sonic-fullcone-support.patch" \
+        "$kernel_dir/986-add-sonic-fullcone-to-nft.patch" \
+        "$libnftnl_dir/patches/001-libnftnl-add-fullcone-expression-support.patch" \
+        "$nftables_dir/patches/002-nftables-add-fullcone-expression-support.patch" \
+        "$firewall4_dir/patches/001-sonic-fullcone.patch" \
+        "$firewall4_dir/patches/002-default-enable-fullcone.patch" \
+        "$firewall4_dir/patches/003-match-nat-leakage-address-family.patch" \
+        "$luci_dir/patches/001-integrate-firewall-zones.patch" \
+        "$luci_dir/patches/002-disable-routing-nat-offload.patch" \
+        "$patch_root/firewall4/004-independent-ipv6.patch" \
+        "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.js" \
+        "$patch_root/luci-app-fullconenat-sonic/90-luci-app-fullconenat-sonic" \
+        "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.po" \
+        "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.pot"; do
+        [ -s "$file" ] || { echo "Missing upstream SONiC Fullcone component: $file" >&2; return 1; }
+    done
+
+    [ -s "$backend_dir/Makefile" ] || {
+        echo "Upstream fullconenat-sonic backend package is missing." >&2
+        return 1
+    }
+    grep -q 'CONFIG_NF_NAT_FULLCONE=y' "$backend_dir/Makefile" || {
+        echo "Upstream Fullcone package does not enable CONFIG_NF_NAT_FULLCONE." >&2
+        return 1
+    }
+    [ -s "$luci_dir/Makefile" ] || {
+        echo "Upstream luci-app-fullconenat-sonic package is missing." >&2
+        return 1
+    }
+
+    install -Dm644 "$patch_root/firewall4/004-independent-ipv6.patch" "$firewall4_dir/patches/004-independent-ipv6.patch"
+    install -Dm644 "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.js" "$luci_dir/htdocs/luci-static/resources/tools/fullconenat-sonic.js"
+    install -Dm644 "$patch_root/luci-app-fullconenat-sonic/90-luci-app-fullconenat-sonic" "$luci_dir/root/etc/uci-defaults/90-luci-app-fullconenat-sonic"
+    install -Dm644 "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.po" "$luci_dir/po/zh_Hans/fullconenat-sonic.po"
+    install -Dm644 "$patch_root/luci-app-fullconenat-sonic/fullconenat-sonic.pot" "$luci_dir/po/templates/fullconenat-sonic.pot"
+
+    echo "Upstream SONiC Fullcone installed with independent IPv4/IPv6 switches."
+}

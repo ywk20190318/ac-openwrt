@@ -34,7 +34,6 @@ source "$SCRIPT_DIR/packages.sh"
 source "$SCRIPT_DIR/system.sh"
 source "$SCRIPT_DIR/docker.sh"
 
-
 main() {
     clone_repo
     clean_up
@@ -43,22 +42,11 @@ main() {
     fix_miniupnpd_patches
     update_golang
     clone_quickfile
-    clone_lucky
     clone_mini_diskmanager
     clone_dockerman
-    clone_adguardhome
-    clone_luci_app_smartdns
-    clone_ghboost
-    clone_dockerd_istoreos
-    clone_zerotier
-    fix_zerotier_nonfree
-    install_extra_feed_deps
-    clone_oaf
-    clone_luci_tailscale
-    clone_singbox
     install_feeds
+    install_sonic_fullcone
     restore_libffi
-    fix_smartdns_makefile
     update_docker_stack
     remove_tweaked_packages
     change_dnsmasq2full
@@ -73,7 +61,6 @@ main() {
     update_nss_diag
     fix_compile_coremark
     set_build_signature
-    add_backup_info_to_sysupgrade
     remove_attendedsysupgrade
     fix_rust_compile_error
     fix_kconfig_recursive_dependency
